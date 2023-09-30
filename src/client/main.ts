@@ -29,6 +29,7 @@ import { TSMap } from 'glov/common/types';
 import {
   arrayToSet,
   clamp,
+  lerp,
   mod,
 } from 'glov/common/util';
 import {
@@ -39,11 +40,14 @@ import {
 
 import { puzzles } from './puzzles';
 
-const { floor } = Math;
+const { floor, round } = Math;
 
 const MININT = -999;
 const MAXINT = 999;
 const TICK_TIME = 1000;
+const TICK_TIME_FF_START = 100;
+const TICK_TIME_FF_MAX = 1;
+const RADIO_FLASH = 750;
 const MAX_OUTPUT = 26;
 
 function hexToColor(hex: string): Vec4 {
@@ -64,6 +68,8 @@ Z.BACKGROUND = 1;
 Z.SPRITES = 10;
 Z.UI = 100;
 Z.NODES = 110;
+
+const BUTTON_H = 48;
 
 const CHW = 9;
 const CHH = 16;
@@ -98,6 +104,14 @@ const OUTPUT_H = INPUT_H;
 
 const CONTROLS_X = GOAL_X + GOAL_W + 4;
 const CONTROLS_Y = 8;
+
+const CHANNELS_X = 4;
+const CHANNELS_Y = NODES_Y + NODES_H + 4;
+const CHANNELS_H = BUTTON_H;
+const CHANNEL_W = CHANNELS_H;
+const MAX_CHANNELS = 18;
+const CHANNELS_PAD = 2;
+// const CHANNELS_W = CHANNEL_W * MAX_CHANNELS + CHANNELS_PAD * (MAX_CHANNELS - 1);
 
 // Virtual viewport for our game logic
 const game_width = 145*9;
@@ -169,13 +183,13 @@ function parseOp(toks: string[], source_line: number): Op | string {
     } else if (type === 'label') {
       p[ii] = v;
     } else if (type === 'channel') {
-      if (v.match(/^ch\d+$/)) {
+      if (v.match(/^ch[1-9]\d*$/)) {
         p[ii] = v;
       } else {
         return `Operand ${ii+1} must be a ${type}`;
       }
     } else { // number or register, and parameter is not a number, so must be a register
-      if (OKTOK[v] || v.match(/^ch\d+$/)) {
+      if (OKTOK[v] || v.match(/^ch[1-9]\d*$/)) {
         if (type === 'register' && v === 'input') {
           return 'Cannot write to INPUT';
         } else if (type === 'number' && v === 'output') {
@@ -199,6 +213,7 @@ class Node {
   pos = [0,0];
   code: string = '';
   radio_state!: Partial<Record<number, number>>;
+  node_radio_activate_time!: Partial<Record<number, number>>;
   active_radios!: number[];
   step_idx!: number;
   acc!: number;
@@ -211,15 +226,25 @@ class Node {
     this.acc = 0;
     this.step_idx = 0;
     this.radio_state = {};
+    this.node_radio_activate_time = {};
     this.active_radios = [];
   }
   error_idx = -1;
   error_str: string | null = null;
+  error_is_step = false;
+  resetError(): void {
+    if (this.error_is_step) {
+      this.error_is_step = false;
+      this.error_idx = -1;
+      this.error_str = null;
+    }
+  }
   op_lines: Op[] = [];
   labels: TSMap<number> = {};
   setCode(code: string): void {
     this.error_idx = -1;
     this.error_str = null;
+    this.error_is_step = false;
     this.code = code;
     let lines = code.split(/\n|\r/g);
     let labels: TSMap<number> = this.labels = {};
@@ -266,9 +291,10 @@ class Node {
   stepError(msg: string): void {
     this.error_str = msg;
     this.error_idx = this.op_lines[this.step_idx].source_line;
+    this.error_is_step = true;
   }
   step(game_state: GameState): void {
-    let { op_lines, step_idx, node_type, labels, active_radios, radio_state } = this;
+    let { op_lines, step_idx, node_type, labels, active_radios, radio_state, node_radio_activate_time } = this;
     if (!op_lines.length) {
       return;
     }
@@ -307,6 +333,7 @@ class Node {
         // Assign to output
         assert(typeof p1 === 'string');
         if (p1 === 'acc') {
+          node_radio_activate_time[0] = engine.frame_timestamp;
           this.acc = v;
         } else if (p1 === 'output') {
           if (!game_state.addOutput(v)) {
@@ -332,6 +359,10 @@ class Node {
             } else {
               radio_state[radio_idx] = v;
             }
+          }
+          if (v) {
+            node_radio_activate_time[radio_idx] = engine.frame_timestamp;
+            game_state.activateRadio(radio_idx);
           }
         } else {
           assert(false);
@@ -413,6 +444,12 @@ class Node {
   }
 }
 
+type ScoreData = {
+  loc: number;
+  nodes: number;
+  time: number;
+};
+
 class GameState {
   nodes: Node[] = [];
   puzzle_idx = 0;
@@ -421,12 +458,18 @@ class GameState {
   state: 'play' | 'pause' | 'edit' | 'win' = 'edit';
   tick_counter = 0;
   tick_idx = 0;
+  tick_idx_ff = 0;
+  fast_forward = false;
   radios: Partial<Record<number, number>> = {};
+  radio_activate_time: Partial<Record<number, number>> = {};
   resetSim(): void {
     this.output = [];
     this.input_idx = 0;
     this.tick_idx = 0;
+    this.tick_idx_ff = 0;
     this.radios = {};
+    this.radio_activate_time = {};
+    this.fast_forward = false;
     this.nodes.forEach((node) => node.resetSim());
   }
   isPlaying(): boolean {
@@ -445,12 +488,21 @@ class GameState {
     }
     if (this.state !== 'pause') {
       this.resetSim();
+      this.tick_counter = this.stepTime();
+    } else {
+      this.tick_counter = 0;
     }
     this.state = 'play';
-    this.tick_counter = TICK_TIME;
   }
   stop(): void {
     this.state = 'edit';
+    let { nodes } = this;
+    nodes.forEach((node) => {
+      node.resetError();
+    });
+  }
+  activateRadio(radio_idx: number): void {
+    this.radio_activate_time[radio_idx] = engine.frame_timestamp;
   }
   hasError(): boolean {
     let { nodes } = this;
@@ -476,12 +528,19 @@ class GameState {
     this.output.push(v);
     return true;
   }
+  stepTime(): number {
+    if (!this.fast_forward) {
+      return TICK_TIME;
+    }
+    return round(lerp(clamp(this.tick_idx_ff/30, 0, 1), TICK_TIME_FF_START, TICK_TIME_FF_MAX));
+  }
   step(): void {
     if (this.state === 'win') {
       return;
     }
     assert(this.isSimulating());
     this.tick_idx++;
+    this.tick_idx_ff++;
     let { nodes, radios, puzzle_idx, output } = this;
 
     // step nodes
@@ -510,16 +569,44 @@ class GameState {
       this.state = 'win';
     }
   }
+  won(): boolean {
+    return this.state === 'win';
+  }
+  score(): ScoreData {
+    let loc = 0;
+    let { nodes } = this;
+    nodes.forEach((node) => {
+      loc += node.op_lines.length;
+    });
+    return {
+      loc,
+      nodes: nodes.length,
+      time: this.tick_idx,
+    };
+  }
+  ff(): void {
+    if (!this.isSimulating() || !this.isPlaying()) {
+      this.play();
+      this.fast_forward = true;
+    } else {
+      this.fast_forward = !this.fast_forward;
+    }
+    this.tick_idx_ff = 0;
+    if (this.tick_counter > this.stepTime()) {
+      this.tick_counter = this.stepTime();
+    }
+  }
   tick(dt: number): void {
     if (!this.isPlaying()) {
       return;
     }
-    if (dt >= this.tick_counter) {
+    let step_time = this.stepTime();
+    while (dt >= this.tick_counter) {
+      dt -= this.tick_counter;
       this.step();
-      this.tick_counter = TICK_TIME;
-    } else {
-      this.tick_counter -= dt;
+      this.tick_counter = step_time;
     }
+    this.tick_counter -= dt;
   }
 }
 
@@ -531,6 +618,8 @@ function init(): void {
     name = `icon_${name}`;
     sprites[name] = spriteCreate({ name });
   });
+  sprites.channel_bg = spriteCreate({ name: 'channel_bg' });
+  sprites.channel_bg_flash = spriteCreate({ name: 'channel_bg_flash' });
   loadUISprite('node_panel_bg', [16, 16, 16], [16, 16, 16]);
   loadUISprite('node_panel', [16, 16, 16], [32, 16, 16]);
   loadUISprite('node_panel_info', [16, 16, 16], [32, 16, 16]);
@@ -539,24 +628,26 @@ function init(): void {
   node1.setCode(`MOV ch3 INPUT
 MOV ACC INPUT
 loop: MOV ch1 ACC
-wait: JNZ ch2 wait
+wait: JEZ ch2 wait
 JLZ ch2 end
 DEC
-JMP loop`);
+JMP loop
+end:`);
   game_state.nodes.push(node1);
   let node2 = new Node('15x5');
   node2.pos[0] = 1;
   node2.setCode(`MOV acc 0
+loop: NOP
 NOP
 NOP
-NOP
-loop: JEZ ch1 end
+JEZ ch1 end
 MOV ch3 acc
 MOV ch2 1
 MOV acc ch4
 MOV ch2 0
 JMP loop
 end: MOV ch2 -1
+NOP
 MOV ch2 0
 MOV output ACC`);
   game_state.nodes.push(node2);
@@ -571,7 +662,7 @@ MOV output ACC`);
 function statePlay(dt: number): void {
   game_state.tick(dt);
 
-  let { nodes, puzzle_idx, input_idx } = game_state;
+  let { nodes, puzzle_idx, input_idx, radios, radio_activate_time } = game_state;
   let puzzle = puzzles[puzzle_idx];
 
   // draw goal
@@ -579,11 +670,28 @@ function statePlay(dt: number): void {
     x: GOAL_X, y: GOAL_Y, w: GOAL_W, h: GOAL_H,
     sprite: ui.sprites.node_panel_info,
   });
+  if (game_state.won()) {
+    let score = game_state.score();
+    let y = GOAL_Y + PANEL_VPAD + CHH + 4;
+    font.draw({
+      color: palette_font[10],
+      x: GOAL_X + PANEL_HPAD, y, w: GOAL_W - PANEL_HPAD * 2, h: GOAL_H - PANEL_VPAD*2 - CHH,
+      align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
+      text: 'SUCCESS!',
+    });
+    y += CHH + 8;
+    font.draw({
+      color: palette_font[5],
+      x: GOAL_X + PANEL_HPAD, y, w: GOAL_W - PANEL_HPAD * 2, h: GOAL_H - PANEL_VPAD*2 - CHH,
+      align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
+      text: `${score.time} Ticks\n${score.loc} Lines of code\n${score.nodes} Nodes`,
+    });
+  }
   font.draw({
     color: palette_font[5],
     x: GOAL_X + PANEL_HPAD, y: GOAL_Y + PANEL_VPAD, w: GOAL_W - PANEL_HPAD * 2,
     align: ALIGN.HFIT|ALIGN.HWRAP,
-    text: `GOAL: ${puzzle.title}\n${puzzle.goal}`,
+    text: game_state.won() ? `GOAL: ${puzzle.title}` : `GOAL: ${puzzle.title}\n${puzzle.goal}`,
   });
 
   // controls
@@ -596,9 +704,41 @@ function statePlay(dt: number): void {
       img: game_state.isPlaying() ? sprites.icon_pause : sprites.icon_play,
       shrink: 1,
       tooltip: game_state.isPlaying() ? 'Pause' : 'Start',
-      disabled: game_state.hasError(),
+      disabled: game_state.hasError() || game_state.won(),
     })) {
       game_state.play();
+    }
+    x += w + 2;
+    if (button({
+      x, y, w,
+      img: sprites.icon_step,
+      shrink: 1,
+      tooltip: !game_state.isSimulating() ? 'Start paused' : !game_state.isPlaying() ?
+        'Step 1 instruction' :
+        'Step 1 instruction then pause',
+      disabled: game_state.hasError() || game_state.won(),
+    })) {
+      if (!game_state.isSimulating()) {
+        // just start playing and pause
+        game_state.play();
+        game_state.play();
+      } else {
+        if (game_state.isPlaying()) {
+          // pause first
+          game_state.play();
+        }
+        game_state.step();
+      }
+    }
+    x += w + 2;
+    if (button({
+      x, y, w,
+      img: sprites.icon_ff,
+      shrink: 1,
+      tooltip: 'Fast-forward',
+      disabled: game_state.hasError() || game_state.won(),
+    })) {
+      game_state.ff();
     }
     x += w + 2;
     if (game_state.isSimulating()) {
@@ -611,21 +751,6 @@ function statePlay(dt: number): void {
         game_state.stop();
       }
       x += w + 2;
-      if (button({
-        x, y, w,
-        img: sprites.icon_step,
-        shrink: 1,
-        tooltip: 'Step 1 instruction',
-      })) {
-        game_state.step();
-      }
-      x += w + 2;
-      button({
-        x, y, w,
-        img: sprites.icon_ff,
-        shrink: 1,
-        tooltip: 'Fast-forward',
-      });
       x += w + 2;
     } else {
       button({
@@ -644,14 +769,14 @@ function statePlay(dt: number): void {
         disabled: true,
       });
       x += w + 2;
-      button({
-        x, y, w,
-        img: sprites.icon_help,
-        shrink: 1,
-        tooltip: 'RTFM',
-      });
-      x += w + 2;
     }
+    button({
+      x, y, w,
+      img: sprites.icon_help,
+      shrink: 1,
+      tooltip: 'RTFM',
+    });
+    x += w + 2;
     button({
       x, y, w,
       img: sprites.icon_menu,
@@ -755,7 +880,7 @@ function statePlay(dt: number): void {
 
   for (let ii = 0; ii < nodes.length; ++ii) {
     let node = nodes[ii];
-    let { acc, active_radios, radio_state, error_idx, error_str, step_idx } = node;
+    let { acc, active_radios, radio_state, node_radio_activate_time, error_idx, error_str, step_idx } = node;
     let node_type = node_types[node.type];
     let x = NODE_X[node.pos[0]];
     let x1 = x + NODE_W - 1;
@@ -808,16 +933,19 @@ function statePlay(dt: number): void {
       let yy = y + radio_h * jj;
       let text: string | null = null;
       let color = palette_font[10];
+      let at: number | undefined;
       if (jj === 0) {
         if (!game_state.isSimulating()) {
           text = 'ACC\n?';
         } else {
           text = `ACC\n${acc}`;
+          at = node_radio_activate_time[0];
         }
       } else {
         let radio_idx = active_radios[jj - 1];
         if (radio_idx && game_state.isSimulating()) {
           text = `ch${radio_idx}\n${radio_state[radio_idx]}`;
+          at = node_radio_activate_time[radio_idx];
         } else {
           color = palette_font[0];
           text = 'chX\n?';
@@ -825,6 +953,13 @@ function statePlay(dt: number): void {
       }
       let yy1 = (jj === num_boxes - 1) ? y1 - 1 : yy + radio_h - 2;
       drawRect(x, yy - 1, x + RADIO_W, yy1, Z.NODES+1, palette[1]);
+      if (at) {
+        let flash_dt = engine.frame_timestamp - at;
+        if (flash_dt < RADIO_FLASH) {
+          let c = palette[0];
+          drawRect(x, yy - 1, x + RADIO_W, yy1, Z.NODES+1.1, [c[0], c[1], c[2], 1-flash_dt/RADIO_FLASH]);
+        }
+      }
       if (text) {
         font.draw({
           color,
@@ -839,6 +974,46 @@ function statePlay(dt: number): void {
         let line_y = yy - 2;
         drawLine(x, line_y, x1, line_y, Z.NODES + 1, 1, 1, palette[2]);
       }
+    }
+  }
+
+  // draw channels
+  {
+    let x = CHANNELS_X;
+    let y = CHANNELS_Y;
+    for (let ii = 0; ii < MAX_CHANNELS; ++ii) {
+      let radio_idx = ii + 1;
+      sprites.channel_bg.draw({
+        x, y, w: CHANNEL_W, h: CHANNEL_W,
+      });
+      let at = radio_activate_time[radio_idx];
+      let color = palette_font[0];
+      if (at) {
+        let flashdt = engine.frame_timestamp - at;
+        if (flashdt < RADIO_FLASH) {
+          sprites.channel_bg_flash.draw({
+            x, y, w: CHANNEL_W, h: CHANNEL_W, z: Z.UI + 1,
+            color: [1,1,1,1 - flashdt/RADIO_FLASH],
+          });
+          color = palette_font[10];
+        }
+      }
+      let text = `ch${radio_idx}\n0`;
+      if (game_state.isSimulating()) {
+        let v = radios[radio_idx] || 0;
+        if (v) {
+          color = palette_font[10];
+          text = `ch${radio_idx}\n${v}`;
+        }
+      }
+      font.draw({
+        color,
+        x, y, z: Z.UI + 2,
+        w: CHANNEL_W, h: CHANNEL_W,
+        align: ALIGN.HVCENTER|ALIGN.HWRAP,
+        text,
+      });
+      x += CHANNEL_W + CHANNELS_PAD;
     }
   }
 }
