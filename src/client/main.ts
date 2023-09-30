@@ -41,13 +41,13 @@ import {
 
 import { puzzles } from './puzzles';
 
-const { floor, round } = Math;
+const { floor } = Math;
 
 const MININT = -999;
 const MAXINT = 999;
 const TICK_TIME = 1000;
 const TICK_TIME_FF_START = 100;
-const TICK_TIME_FF_MAX = 1;
+const TICK_TIME_FF_MAX = 0.1;
 const RADIO_FLASH = 750;
 const MAX_OUTPUT = 26;
 
@@ -460,7 +460,7 @@ class GameState {
   state: 'play' | 'pause' | 'edit' | 'win' = 'edit';
   tick_counter = 0;
   tick_idx = 0;
-  tick_idx_ff = 0;
+  elapsed_time_ff = 0;
   fast_forward = false;
   radios: Partial<Record<number, number>> = {};
   radio_activate_time: Partial<Record<number, number>> = {};
@@ -468,7 +468,7 @@ class GameState {
     this.output = [];
     this.input_idx = 0;
     this.tick_idx = 0;
-    this.tick_idx_ff = 0;
+    this.elapsed_time_ff = 0;
     this.radios = {};
     this.radio_activate_time = {};
     this.fast_forward = false;
@@ -548,7 +548,7 @@ class GameState {
     if (!this.fast_forward) {
       return TICK_TIME;
     }
-    return round(lerp(clamp(this.tick_idx_ff/30, 0, 1), TICK_TIME_FF_START, TICK_TIME_FF_MAX));
+    return lerp(clamp(this.elapsed_time_ff/5000, 0, 1), TICK_TIME_FF_START, TICK_TIME_FF_MAX);
   }
   step(): void {
     if (this.state === 'win') {
@@ -556,7 +556,6 @@ class GameState {
     }
     assert(this.isSimulating());
     this.tick_idx++;
-    this.tick_idx_ff++;
     this.input_read_idx = -1;
     this.did_output = null;
     let { nodes, radios, puzzle_idx, output } = this;
@@ -609,7 +608,7 @@ class GameState {
     } else {
       this.fast_forward = !this.fast_forward;
     }
-    this.tick_idx_ff = 0;
+    this.elapsed_time_ff = 0;
     if (this.tick_counter > this.stepTime()) {
       this.tick_counter = this.stepTime();
     }
@@ -618,6 +617,7 @@ class GameState {
     if (!this.isPlaying()) {
       return;
     }
+    this.elapsed_time_ff += dt;
     let step_time = this.stepTime();
     while (dt >= this.tick_counter) {
       dt -= this.tick_counter;
@@ -931,6 +931,7 @@ function statePlay(dt: number): void {
         font_height: CHH,
         text: node.code,
         multiline: node_type.lines,
+        max_len: CODE_LINE_W,
       }, node.code);
       node.setCode(ebr.text);
     } else {
@@ -944,15 +945,17 @@ function statePlay(dt: number): void {
       drawRect(x-1, y + step_idx * CHH, x + CODE_LINE_W*CHW+2, y + (step_idx + 1) * CHH - 1, Z.NODES+0.25, palette[0]);
     }
     if (error_idx !== -1) {
-      drawRect(x-1, y + error_idx * CHH, x + CODE_LINE_W*CHW+2, y + (error_idx + 1) * CHH - 1, Z.NODES+0.5, palette[6]);
+      drawRect(x-1, y + error_idx * CHH - 2,
+        x + CODE_LINE_W*CHW+2, y + (error_idx + 1) * CHH - 2, Z.NODES+0.5, palette[6]);
+      let error_y = y1 - 1;
       let h = font.draw({
         color: palette_font[4],
-        x: x - 3, y, z: Z.NODES + 3,
-        w: NODE_W, h: node_type.lines * CHH - 2,
-        align: ALIGN.HCENTER | ALIGN.HWRAP | ALIGN.VBOTTOM,
+        x: x - 3, y: error_y, z: Z.NODES + 3,
+        w: NODE_W,
+        align: ALIGN.HCENTER | ALIGN.HWRAP,
         text: error_str!,
       });
-      drawRect(x - 3, y1 - h, x1, y1 - 1, Z.NODES+2.5, palette[7]);
+      drawRect(x - 3, error_y, x1, error_y + h - 1, Z.NODES+2.5, palette[7]);
     }
     x += CODE_LINE_W*CHW + 4;
     drawLine(x, y - 1, x, y1 - 2, Z.NODES + 1, 1, 1, palette[2]);

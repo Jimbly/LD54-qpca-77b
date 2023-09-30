@@ -128,9 +128,16 @@ class GlovUIEditBox {
     this.h = this.font_height;
   }
   updateText() {
-    this.text = this.input.value;
+    let old_text = this.text = this.input.value;
     if (this.max_len > 0) {
-      this.text = this.text.slice(0, this.max_len);
+      if (this.multiline) {
+        this.text = this.text.split('\n').map((line) => line.slice(0, this.max_len)).join('\n');
+      } else {
+        this.text = this.text.slice(0, this.max_len);
+      }
+    }
+    if (old_text !== this.text) {
+      // this.input.value = this.text;
     }
   }
   getText() {
@@ -259,7 +266,11 @@ class GlovUIEditBox {
         input.setAttribute('type', this.type);
         input.setAttribute('placeholder', getStringIfLocalizable(this.placeholder));
         if (this.max_len) {
-          input.setAttribute('maxLength', this.max_len);
+          if (this.multiline) {
+            input.setAttribute('cols', this.max_len);
+          } else {
+            input.setAttribute('maxLength', this.max_len);
+          }
         }
         if (this.multiline) {
           input.setAttribute('rows', this.multiline);
@@ -283,6 +294,7 @@ class GlovUIEditBox {
         if (this.initial_select) {
           input.select();
         }
+
       } else {
         this.input = null;
       }
@@ -304,7 +316,7 @@ class GlovUIEditBox {
       let size = camera2d.htmlSize(this.w, 0);
       elem.style.width = `${size[0]}%`;
       let old_fontsize = elem.style.fontSize || '?px';
-      let new_fontsize = `${camera2d.virtualToFontSize(this.font_height).toFixed(0)}px`;
+      let new_fontsize = `${camera2d.virtualToFontSize(this.font_height).toFixed(4)}px`;
       if (new_fontsize !== old_fontsize) {
         elem.style.fontSize = new_fontsize;
       }

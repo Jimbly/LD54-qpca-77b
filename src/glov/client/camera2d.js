@@ -384,9 +384,9 @@ export function virtualToDom(dst, src) {
 
 export function virtualToFontSize(height) {
   if (render_width) {
-    return height / (data[6] * data[8]) * 0.84;
+    return height / (data[6] * data[8]) * 0.969; // LD54
   } else {
-    return height * data[5] / data[6] * 0.84;
+    return height * data[5] / data[6] * 0.969; // LD54
   }
 }
 

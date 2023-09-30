@@ -143,6 +143,8 @@ canvas {
   border: none;
   color: #e1ccad;
   outline: none;
+  overflow: hidden;
+  text-wrap: nowrap;
 }
 
 .glovui_link {
