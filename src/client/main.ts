@@ -253,6 +253,11 @@ class Node {
     this.error_is_step = false;
     this.code = code;
     let lines = code.split(/\n|\r/g);
+    let node_type = node_types[this.type];
+    if (lines.length > node_type.lines) {
+      this.error_str = 'Too many lines';
+      this.error_idx = node_type.lines - 1;
+    }
     let labels: TSMap<number> = this.labels = {};
     let op_lines: Op[] = this.op_lines = [];
     for (let ii = 0; ii < lines.length; ++ii) {
@@ -272,8 +277,10 @@ class Node {
       let toks = line.split(/\s+/g);
       let op = parseOp(toks, ii);
       if (typeof op === 'string') {
-        this.error_str = op;
-        this.error_idx = ii;
+        if (!this.error_str) {
+          this.error_str = op;
+          this.error_idx = ii;
+        }
       } else {
         op_lines.push(op);
       }

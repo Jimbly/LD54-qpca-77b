@@ -295,6 +295,21 @@ class GlovUIEditBox {
           input.select();
         }
 
+        // if (this.max_len || this.multiline) {
+        //   const onChange = (e) => {
+        //     if (this.multiline) {
+        //       let new_lines = input.value.split('\n').length;
+        //       if (new_lines >= this.multiline) {
+        //         input.value = input.value.split('\n').slice(0, this.multiline).join('\n');
+        //         return false;
+        //       }
+        //     }
+        //     return true;
+        //   };
+        //   input.addEventListener('keyup', onChange);
+        //   input.addEventListener('change', onChange);
+        // }
+
       } else {
         this.input = null;
       }
