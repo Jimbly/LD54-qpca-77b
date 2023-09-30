@@ -131,14 +131,16 @@ declare module 'glov/client/ui' {
 
 class NodeType {
   h: number;
-  constructor(public lines: number, public radios: number) {
+  constructor(public lines: number, public radios: number, public title: string) {
     this.h = (lines + 1) * CHH;
   }
 }
 let node_types: Record<string, NodeType> = {
-  '9x3': new NodeType(9, 3),
-  '15x5': new NodeType(15, 5),
+  '4x1': new NodeType(4, 1, 'G0401'),
+  '9x3': new NodeType(9, 3, 'G0903'),
+  '16x5': new NodeType(16, 5, 'G1605'),
 };
+const NUM_NODE_TYPES = Object.keys(node_types).length;
 
 type OpDef = {
   params: ('channel' | 'register' | 'number' | 'label')[];
@@ -660,8 +662,8 @@ DEC
 JMP loop
 end:`);
   game_state.nodes.push(node1);
-  let node2 = new Node('15x5');
-  node2.pos[0] = 1;
+  let node2 = new Node('16x5');
+  node2.pos[0] = 0;
   node2.setCode(`MOV acc 0
 loop: NOP
 NOP
@@ -679,7 +681,7 @@ MOV output ACC
 NOP`);
   game_state.nodes.push(node2);
 
-  let node3 = new Node('9x3');
+  let node3 = new Node('4x1');
   node3.setCode('MOV ch4 ch3');
   node3.pos[0] = 2;
   game_state.nodes.push(node3);
@@ -925,14 +927,18 @@ function statePlay(dt: number): void {
   drawLine(NODE_X[1] - 3, NODES_Y, NODE_X[1] - 3, NODES_Y + NODES_H - 1, Z.UI + 1, 1, 1, palette[8]);
   drawLine(NODE_X[2] - 3, NODES_Y, NODE_X[2] - 3, NODES_Y + NODES_H - 1, Z.UI + 1, 1, 1, palette[8]);
 
-  for (let ii = nodes.length - 1; ii >= 0; --ii) {
+  let node_y = [NODE_Y, NODE_Y, NODE_Y];
+
+  let remove_nodes = [];
+  for (let ii = 0; ii < nodes.length; ++ii) {
     let node = nodes[ii];
     let { acc, active_radios, radio_state, node_radio_activate_time, error_idx, error_str, step_idx } = node;
     let node_type = node_types[node.type];
     let x = NODE_X[node.pos[0]];
     let x1 = x + NODE_W - 1;
-    let y = NODE_Y + node.pos[1] * CHH;
+    let y = node_y[node.pos[0]];
     let y1 = y + node_type.h;
+    node_y[node.pos[0]] = y1 + 2;
     if (game_state.isEditing()) {
       if (button({
         x: x + NODE_W - CHH - 5,
@@ -944,7 +950,7 @@ function statePlay(dt: number): void {
         no_bg: true,
         // tooltip: 'Delete node', - not over DOM
       })) {
-        nodes.splice(ii, 1);
+        remove_nodes.push(ii);
       }
       if (buttonWasFocused()) {
         sprites.x_focused.draw({
@@ -968,7 +974,7 @@ function statePlay(dt: number): void {
       color: palette_font[7],
       x, y, z: Z.NODES + 1,
       w: NODE_W,
-      text: node.type,
+      text: node_type.title,
       align: ALIGN.HCENTER,
     });
     y += CHH;
@@ -1057,6 +1063,35 @@ function statePlay(dt: number): void {
       if (jj !== 0) {
         let line_y = yy - 2;
         drawLine(x, line_y, x1, line_y, Z.NODES + 1, 1, 1, palette[2]);
+      }
+    }
+  }
+  for (let ii = remove_nodes.length - 1; ii >= 0; --ii) {
+    nodes.splice(remove_nodes[ii], 1);
+  }
+
+
+  for (let column = 0; column < 3; ++column) {
+    let max_y = node_y[column];
+    let x = NODE_X[column];
+    let x1 = x + NODE_W - 1;
+    let avail_h = NODES_Y + NODES_H - max_y;
+    if (avail_h >= node_types['4x1'].h) {
+      let button_w = floor((x1 - x - 4 * (NUM_NODE_TYPES-1)) / NUM_NODE_TYPES);
+      for (let key in node_types) {
+        if (button({
+          x,
+          y: node_y[column],
+          // font_height: CHH * 2,
+          w: button_w,
+          text: `+${node_types[key].title}`,
+          disabled: node_types[key].h > avail_h,
+        })) {
+          let node = new Node(key);
+          node.pos[0] = column;
+          nodes.push(node);
+        }
+        x += button_w + 4;
       }
     }
   }

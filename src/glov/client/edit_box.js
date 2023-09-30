@@ -316,10 +316,23 @@ class GlovUIEditBox {
       let size = camera2d.htmlSize(this.w, 0);
       elem.style.width = `${size[0]}%`;
       let old_fontsize = elem.style.fontSize || '?px';
-      let new_fontsize = `${camera2d.virtualToFontSize(this.font_height).toFixed(4)}px`;
+
+      let new_fontsize = `${camera2d.virtualToFontSize(this.font_height).toFixed(8)}px`;
       if (new_fontsize !== old_fontsize) {
-        elem.style.fontSize = new_fontsize;
+        // elem.style.fontSize = new_fontsize;
+        // Try slightly better smooth scaling from https://medium.com/autodesk-tlv/smooth-text-scaling-in-javascript-css-a817ae8cc4c9
+        const preciseFontSize = camera2d.virtualToFontSize(this.font_height);  // Desired font size
+        const roundedSize = Math.floor(preciseFontSize);
+        const s = preciseFontSize / roundedSize; // Remaining scale
+        elem.style.fontSize = `${roundedSize}px`;
+        //const translate = `translate(${pos.x}px, ${pos.y}px)`;
+        const scale = `translate(-50%, -50%)
+                       scale(${s})
+                       translate(50%, 50%)`;
+        elem.style.transform = scale;
       }
+
+
       if (this.zindex) {
         elem.style['z-index'] = this.zindex;
       }
