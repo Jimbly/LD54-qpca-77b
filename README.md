@@ -13,6 +13,10 @@ Start with: `npm start` (after running `npm i` once)
 
 Plan: TIS-8829
 
+TODO:
+* Quick reference somewhere (Always up when edit box focused?)
+
+
 Nodes: 22ch wide + 4ch output + 1ch margin + 3ch borders = 30ch
 Input/output: 6ch input + 11ch output = 17ch
 Padding: 1ch around node graph each side; 4 borders

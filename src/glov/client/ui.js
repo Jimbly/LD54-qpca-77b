@@ -786,7 +786,7 @@ export function drawTooltip(param) {
   }
   let y = tooltip_y0 + eff_tooltip_pad;
   y += font.drawSizedWrapped(font_style_modal,
-    x + eff_tooltip_pad, y, z+1, w, 0, ui_style_current.text_height,
+    x + eff_tooltip_pad, y + 1/*LD54*/, z+1, w, 0, ui_style_current.text_height,
     tooltip);
   y += eff_tooltip_pad;
   let pixel_scale = param.pixel_scale || tooltip_panel_pixel_scale;
@@ -1966,7 +1966,7 @@ function uiApplyStyle(style) {
 }
 
 export function scaleSizes(scale) {
-  button_height = round(32 * scale);
+  button_height = 48; // LD54 round(32 * scale);
   let text_height = round(24 * scale);
   button_width = round(200 * scale);
   button_img_size = button_height;
