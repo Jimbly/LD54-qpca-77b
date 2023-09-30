@@ -21,6 +21,7 @@ import {
 import * as ui from 'glov/client/ui';
 import {
   button,
+  buttonWasFocused,
   drawLine,
   drawRect,
   loadUISprite,
@@ -210,8 +211,10 @@ function parseOp(toks: string[], source_line: number): Op | string {
   };
 }
 
+let last_node_uid = 0;
 class Node {
   pos = [0,0];
+  uid = ++last_node_uid;
   code: string = '';
   radio_state!: Partial<Record<number, number>>;
   node_radio_activate_time!: Partial<Record<number, number>>;
@@ -620,6 +623,9 @@ class GameState {
     this.elapsed_time_ff += dt;
     let step_time = this.stepTime();
     while (dt >= this.tick_counter) {
+      if (this.hasError()) {
+        return;
+      }
       dt -= this.tick_counter;
       this.step();
       this.tick_counter = step_time;
@@ -638,6 +644,8 @@ function init(): void {
   });
   sprites.channel_bg = spriteCreate({ name: 'channel_bg' });
   sprites.channel_bg_flash = spriteCreate({ name: 'channel_bg_flash' });
+  sprites.x = spriteCreate({ name: 'x' });
+  sprites.x_focused = spriteCreate({ name: 'x_focused' });
   loadUISprite('node_panel_bg', [16, 16, 16], [16, 16, 16]);
   loadUISprite('node_panel', [16, 16, 16], [32, 16, 16]);
   loadUISprite('node_panel_info', [16, 16, 16], [32, 16, 16]);
@@ -713,11 +721,30 @@ function statePlay(dt: number): void {
     text: game_state.won() ? `GOAL: ${puzzle.title}` : `GOAL: ${puzzle.title}\n${puzzle.goal}`,
   });
 
-  // controls
+  // draw controls
   {
     let x = CONTROLS_X;
     let y = CONTROLS_Y;
     let w = ui.button_height;
+
+    if (game_state.isSimulating()) {
+      let status = 'RUNNING';
+      if (game_state.won()) {
+        status = 'SUCCESS';
+      } else if (game_state.hasError()) {
+        status = 'ERROR';
+      } else if (!game_state.isPlaying()) {
+        status = 'PAUSED';
+      }
+      font.draw({
+        color: palette_font[5],
+        x, y: y + BUTTON_H + 12,
+        w: 1000,
+        align: ALIGN.HWRAP,
+        text: `Ticks: ${game_state.tick_idx}\nStatus: ${status}`,
+      });
+    }
+
     if (button({
       x, y, w,
       img: game_state.isPlaying() ? sprites.icon_pause : sprites.icon_play,
@@ -893,11 +920,12 @@ function statePlay(dt: number): void {
     w: NODES_W,
     h: NODES_H,
     sprite: ui.sprites.node_panel_bg,
+    eat_clicks: false,
   });
   drawLine(NODE_X[1] - 3, NODES_Y, NODE_X[1] - 3, NODES_Y + NODES_H - 1, Z.UI + 1, 1, 1, palette[8]);
   drawLine(NODE_X[2] - 3, NODES_Y, NODE_X[2] - 3, NODES_Y + NODES_H - 1, Z.UI + 1, 1, 1, palette[8]);
 
-  for (let ii = 0; ii < nodes.length; ++ii) {
+  for (let ii = nodes.length - 1; ii >= 0; --ii) {
     let node = nodes[ii];
     let { acc, active_radios, radio_state, node_radio_activate_time, error_idx, error_str, step_idx } = node;
     let node_type = node_types[node.type];
@@ -905,12 +933,35 @@ function statePlay(dt: number): void {
     let x1 = x + NODE_W - 1;
     let y = NODE_Y + node.pos[1] * CHH;
     let y1 = y + node_type.h;
+    if (game_state.isEditing()) {
+      if (button({
+        x: x + NODE_W - CHH - 5,
+        y, z: Z.NODES + 1,
+        w: CHH,
+        h: CHH,
+        img: sprites.x,
+        shrink: 1,
+        no_bg: true,
+        // tooltip: 'Delete node', - not over DOM
+      })) {
+        nodes.splice(ii, 1);
+      }
+      if (buttonWasFocused()) {
+        sprites.x_focused.draw({
+          x: x + NODE_W - CHH - 5,
+          y, z: Z.NODES + 0.5,
+          w: CHH,
+          h: CHH,
+        });
+      }
+    }
     panel({
       x, y,
       w: NODE_W,
       h: node_type.h,
       z: Z.NODES,
       sprite: ui.sprites.node_panel,
+      eat_clicks: false,
     });
     y+=2;
     font.draw({
@@ -924,7 +975,7 @@ function statePlay(dt: number): void {
     x += 4;
     if (game_state.isEditing()) {
       let ebr = editBox({
-        key: `node${ii}`,
+        key: `node${node.uid}`,
         x, y, z: Z.NODES+1,
         w: CODE_LINE_W * CHW,
         type: 'text',
