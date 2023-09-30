@@ -15,7 +15,12 @@ Plan: TIS-8829
 
 TODO:
 * Quick reference somewhere (Always up when edit box focused?)
-* Show ACC value somewhere
+
+POLISH:
+* jmp by number doesn't seem to work, (also try negative)
+* undo/redo (or, remove buttons)
+* !breakpoint
+* strip/ignore commas
 
 
 Nodes: 22ch wide + 4ch output + 1ch margin + 3ch borders = 30ch

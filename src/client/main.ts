@@ -40,7 +40,10 @@ import {
   vec4,
 } from 'glov/common/vmath';
 
-import { puzzles } from './puzzles';
+import {
+  puzzle_ids,
+  puzzles,
+} from './puzzles';
 
 const { floor } = Math;
 
@@ -658,41 +661,6 @@ function init(): void {
   loadUISprite('node_panel_bg', [16, 16, 16], [16, 16, 16]);
   loadUISprite('node_panel', [16, 16, 16], [32, 16, 16]);
   loadUISprite('node_panel_info', [16, 16, 16], [32, 16, 16]);
-  game_state = new GameState();
-  let node1 = new Node('9x3');
-  node1.setCode(`MOV ch3 INPUT
-MOV ACC INPUT
-loop: MOV ch1 ACC
-wait: JEZ ch2 wait
-JLZ ch2 end
-DEC
-JMP loop
-end:`);
-  game_state.nodes.push(node1);
-  let node2 = new Node('16x5');
-  node2.pos[0] = 0;
-  node2.setCode(`MOV acc 0
-loop: NOP
-NOP
-NOP
-JEZ ch1 end
-MOV ch3 acc
-MOV ch2 1
-MOV acc ch4
-MOV ch2 0
-JMP loop
-end: MOV ch2 -1
-NOP
-MOV ch2 0
-MOV output ACC
-NOP`);
-  game_state.nodes.push(node2);
-
-  let node3 = new Node('4x1');
-  node3.setCode('MOV ch4 ch3');
-  node3.pos[0] = 2;
-  game_state.nodes.push(node3);
-
 }
 
 function statePlay(dt: number): void {
@@ -996,6 +964,7 @@ function statePlay(dt: number): void {
         text: node.code,
         multiline: node_type.lines,
         max_len: CODE_LINE_W,
+        initial_focus: true,
       }, node.code);
       node.setCode(ebr.text);
     } else {
@@ -1144,6 +1113,52 @@ function statePlay(dt: number): void {
   }
 }
 
+function startPuzzle(id: string): void {
+  let idx = puzzle_ids.indexOf(id);
+  assert(idx !== -1);
+  game_state = new GameState();
+  game_state.puzzle_idx = idx;
+
+  if (!'debug' && engine.DEBUG && id === 'multiply') {
+    let node1 = new Node('9x3');
+    node1.setCode(`MOV ch3 INPUT
+MOV ACC INPUT
+loop: MOV ch1 ACC
+wait: JEZ ch2 wait
+JLZ ch2 end
+DEC
+JMP loop
+end:`);
+    game_state.nodes.push(node1);
+    let node2 = new Node('16x5');
+    node2.pos[0] = 0;
+    node2.setCode(`MOV acc 0
+loop: NOP
+NOP
+NOP
+JEZ ch1 end
+MOV ch3 acc
+MOV ch2 1
+MOV acc ch4
+MOV ch2 0
+JMP loop
+end: MOV ch2 -1
+NOP
+MOV ch2 0
+MOV output ACC
+NOP`);
+    game_state.nodes.push(node2);
+
+    let node3 = new Node('4x1');
+    node3.setCode('MOV ch4 ch3');
+    node3.pos[0] = 2;
+    game_state.nodes.push(node3);
+  }
+
+
+  engine.setState(statePlay);
+}
+
 export function main(): void {
   if (engine.DEBUG) {
     // Enable auto-reload, etc
@@ -1191,5 +1206,5 @@ export function main(): void {
 
   init();
 
-  engine.setState(statePlay);
+  startPuzzle('add');
 }
