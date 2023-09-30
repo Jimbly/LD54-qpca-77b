@@ -667,6 +667,13 @@ class GameState {
 }
 
 let game_state: GameState;
+let mode_quick_reference = false;
+const HELP = `QUICK REFERENCE
+MOV [chX|OUTPUT|ACC] [chX|INPUT|ACC|number]
+INC / DEC - modifies ACC             NOP - sleeps 1 cycle
+JMP label; JGZ/JLZ/JEZ/JNZ chX label - >0 / <0 / =0 / <>0
+Conditional J*Z ops must test a signal from other node(s).
+Two signals on the same channel will sum.`;
 
 let sprites: Record<string, Sprite> = {};
 function init(): void {
@@ -715,7 +722,8 @@ function statePlay(dt: number): void {
     color: palette_font[5],
     x: GOAL_X + PANEL_HPAD, y: GOAL_Y + PANEL_VPAD, w: GOAL_W - PANEL_HPAD * 2,
     align: ALIGN.HFIT|ALIGN.HWRAP,
-    text: game_state.won() ? `GOAL: ${puzzle.title}` : `GOAL: ${puzzle.title}\n${puzzle.goal}`,
+    text: mode_quick_reference ? HELP :
+      game_state.won() ? `GOAL: ${puzzle.title}` : `GOAL: ${puzzle.title}\n${puzzle.goal}`,
   });
 
   // draw controls
@@ -813,12 +821,14 @@ function statePlay(dt: number): void {
       });
       x += w + 2;
     }
-    button({
+    if (button({
       x, y, w,
       img: sprites.icon_help,
       shrink: 1,
       tooltip: 'RTFM',
-    });
+    })) {
+      mode_quick_reference = !mode_quick_reference;
+    }
     x += w + 2;
     if (button({
       x, y, w,
@@ -1137,6 +1147,7 @@ function statePlay(dt: number): void {
 }
 
 function startPuzzle(id: string): void {
+  mode_quick_reference = false;
   let idx = puzzle_ids.indexOf(id);
   assert(idx !== -1);
   game_state = new GameState();
@@ -1521,6 +1532,7 @@ export function main(): void {
 
   if (engine.DEBUG && false) {
     startPuzzle('add');
+    mode_quick_reference = true;
   } else {
     engine.setState(stateLevelSelect);
   }
