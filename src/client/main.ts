@@ -14,6 +14,7 @@ import {
   fontStyleColored,
   intColorFromVec4Color,
 } from 'glov/client/font';
+import { link } from 'glov/client/link';
 import * as net from 'glov/client/net';
 import {
   ScoreSystem,
@@ -34,7 +35,9 @@ import {
   drawRect,
   loadUISprite,
   panel,
+  playUISound,
 } from 'glov/client/ui';
+import { getURLBase } from 'glov/client/urlhash';
 import { TSMap } from 'glov/common/types';
 import {
   arrayToSet,
@@ -157,9 +160,9 @@ class NodeType {
   }
 }
 let node_types: Record<string, NodeType> = {
-  '4x1': new NodeType(4, 1, 'G0401'),
-  '9x3': new NodeType(9, 3, 'G0903'),
-  '16x5': new NodeType(16, 5, 'G1605'),
+  '4x1': new NodeType(4, 1, 'AW0401'),
+  '9x3': new NodeType(9, 3, 'AW0903'),
+  '16x5': new NodeType(16, 5, 'AW1605'),
 };
 const NUM_NODE_TYPES = Object.keys(node_types).length;
 
@@ -1153,7 +1156,7 @@ function startPuzzle(id: string): void {
   game_state = new GameState();
   game_state.puzzle_idx = idx;
 
-  if (!'debug' && engine.DEBUG && id === 'multiply') {
+  if (engine.DEBUG && id === 'multiply') {
     let node1 = new Node('9x3');
     node1.setCode(`MOV ch3 INPUT
 MOV ACC INPUT
@@ -1207,7 +1210,7 @@ const SCORE_COLUMNSB: ColumnDef[] = [
   // widths are just proportional, scaled relative to `width` passed in
   { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
   { name: '', width: 60, align: ALIGN.HFIT | ALIGN.VCENTER }, // Name
-  { name: 'Nodes', width: 24 },
+  { name: 'NODES', width: 24 },
 ];
 const SCORE_COLUMNSC: ColumnDef[] = [
   // widths are just proportional, scaled relative to `width` passed in
@@ -1279,7 +1282,7 @@ function stateLevelSelect(dt: number): void {
     x, y, w: 1000,
     align: ALIGN.HCENTER|ALIGN.HWRAP,
     size: CHH,
-    text: `${cur_level_idx + 1} / ${MAX_LEVEL}`,
+    text: `QPCA-77b Puzzle ${cur_level_idx + 1} / ${MAX_LEVEL}`,
   });
   y += CHH;
   font.draw({
@@ -1376,6 +1379,17 @@ function stateLevelSelect(dt: number): void {
     }
   }
 
+  let param = {
+    x: game_width - button_w * 1.5 - 4,
+    y,
+    w: button_w * 1.5, h: button_h,
+    text: 'Reference Manual',
+    url: `${getURLBase()}manual.html`,
+  };
+  if (link(param)) {
+    playUISound('button_click');
+  }
+  buttonText(param);
 }
 
 export function main(): void {
@@ -1405,6 +1419,7 @@ export function main(): void {
       button_disabled: { name: 'pixely/button_disabled', ws: [16, 16, 16], hs: [48] },
     },
     // pixel_aspect: (640/480) / (720 / 400),
+    show_fps: false,
   })) {
     return;
   }
@@ -1531,8 +1546,7 @@ export function main(): void {
 
 
   if (engine.DEBUG && false) {
-    startPuzzle('add');
-    mode_quick_reference = true;
+    startPuzzle('multiply');
   } else {
     engine.setState(stateLevelSelect);
   }

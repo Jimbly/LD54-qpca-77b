@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>QuantumPulse Control Assemblage | Reference Manual</title>
+    <meta name="Description" content="Reference manual for the new and exciting QuantumPulse Control Assemblage computing platform!" />
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta property="og:title" content="QuantumPulse Control Assemblage Reference Manual">
+    <meta property="og:description" content="Reference manual for the new and exciting QuantumPulse Control Assemblage computing platform!">
+    <!-- works for FB, maybe Twitter, maybe not: <meta property="og:image" content="img/facebook.png"> -->
+    <meta property="og:image" content="http://www.dashingstrike.com/LudumDare/LDXX/img/facebook.png"> <!-- full path definitely works for twitter, but took a while -->
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@800&family=Young+Serif&display=swap" rel="stylesheet">
+
+    <style type="text/css">
+      body {
+        background-color: #f9f9f9;
+        color: black;
+        text-decoration-skip-ink: none;
+        font-family: 'Young Serif', serif;
+      }
+      h1,h2,h3,h4 {
+        font-family: 'Open Sans', sans-serif;
+        text-transform: uppercase;
+      }
+      .code {
+        white-space: pre-wrap;
+        font-family: monospace;
+        font-size: 1.5em;
+        background: #bba;
+        padding: 4px;
+      }
+      .pagebreak {
+        page-break-before: always;
+        padding-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="padding-left: 10%; padding-right: 10%">
+      <center>
+        <h1>QuantumPulse&trade; Control Assemblage 77b</h1>
+        <h2>QPCA-77b Reference Manual</h2>
+      </center>
+      <P class="pagebreak">
+        <h2>System Overview</h2>
+        <div>
+          The QuantumPulse&trade; Control Assemblage QPCA-77b is an exciting new state-of-the-art computing platform!  The system comprises of three slots that can be filled with AstroWave&trade; computing nodes of various sizes.  Each node operates independently but perfectly synchronized due to our patented QuantumPulse technology.  Though each node is independent, we all know the real work gets done by collaboration!  Note that for quantum observability reasons, nodes cannot make decisions based on their own state but can only respond to the state broadcast by other nodes.
+        </div>
+      </P>
+      <P class="pagebreak">
+        <h2>1. Node Options</h2>
+        <div>
+          AstroWave&trade; computing nodes all share a number of common properties, and only vary in how many of each feature they have.  All nodes have:
+          <ul>
+            <li>1 <b>accumulator</b> (<b><i>ACC</i></b>) register that can be used for temporary storage as well as incremented and decremented</li>
+            <li>4 or more <b>lines of code</b> each of which can contain a label, and operation, and a comment</li>
+            <li>1 or more <b>radios</b> which are automatically enabled when you send data to a specific channel</li>
+          </ul>
+          Your <b>QPCA-77b</b> starter kit comes equipped with a supply of AstroWave&trade; nodes with the following capacities:
+          <ul>
+            <li><b>AW0401</b>: 4 <b>lines of code</b> and 1 <b>radio</b></li>
+            <li><b>AW0903</b>: 9 <b>lines of code</b> and 3 <b>radios</b></li>
+            <li><b>AW1605</b>: 16 <b>lines of code</b> and 5 <b>radios</b></li>
+          </ul>
+        </div>
+      </P>
+      <P class="pagebreak">
+        <h2>2. Communication Channels</h2>
+        <div>
+          Nodes can communicate with each other by using one of their radios to broadcast on one of nearly limitless communications channels.  Any time a node writes a value to a channel, a radio is allocated and the node continues to broadcast the value until the node writes a different value, or a <b>0</b> to disable broadcasting.
+          <p>Notes:
+          <ul>
+            <li>If a node is broadcasting to specific channel, it cannot read from that channel in any way until after it has stopped broadcasting</li>
+            <li>If two nodes are broadcasting on the same channel, and receiver will read their combined (summed) value</li>
+            <li>Though channels are theoretically limitless, the QuantumPulse&trade; visualization interface will only show you the values being broadcast on channels 1 through 18</li>
+            <li>Due to node execution being synchronized at <i>faster than light speed</i>, if one node reads from a channel on the same cycle that another node starts broadcasting or changes it's value, the reading node will receive the value that was being broadcast on the previous cycle</li>
+          </ul>
+          </p>
+        </div>
+      </P>
+      <P class="pagebreak">
+        <h2>3. Node Execution</h2>
+        <p>Nodes execute their operations in sequential order, and execution automatically returns to the beginning after executing the final instruction.  All operations take exactly one cycle.</p>
+        <h3>3.a. Anatomy of a line of code</h3>
+        <p>Example: <b class="code">foo: MOV ACC INPUT ; bar!</b><br></p>
+        <ul>
+          <li><b class="code">foo:</b> is a label, used as a reference by JUMP instructions</li>
+          <li><b class="code">MOV</b> is the instruction (see below)</li>
+          <li><b class="code">ACC INPUT</b> are the operands to the instruction (specifying registers or values, varies by instruction)</li>
+          <li><b class="code">; bar!</b> is a comment (ignored by the processor)</li>
+        </ul>
+      </P>
+      <P class="pagebreak">
+
+        <h3>3.b. Registers</h3>
+        <h4>3.b.1 <b class="code">ACC</b></h4>
+        <p>The <b>ACC (accumulator)</b> register is a general purpose register that can be read from or written to via the <b class="code">MOV</b> instruction, and modified with the <b class="code">INC</b> and <b class="code">DEC</b> instructions.</p>
+        <h4>3.b.2 <b class="code">INPUT</b></h4>
+        <p>The <b>INPUT</b> register can be read from with the <b class="code">MOV</b> instruction, which will consume one value from the input stream.  If two or more nodes read from <b>INPUT</b> at <i>exactly the same time</i> they will all receive the same value.</p>
+        <h4>3.b.3 <b class="code">OUTPUT</b></h4>
+        <p>The <b>OUTPUT</b> register can be written to with the <b class="code">MOV</b> instruction.  Multiple nodes writing different values to <b>OUTPUT</b> at the same time is not allowed.</p>
+        <h4>3.b.4 Radio Channels <b class="code">ch1</b>...<b class="code">chX</b></h4>
+        <p>Channels can be written to or read from with the <b class="code">MOV</b> instruction, as well as used as a source of comparison for the <b>JUMP</b> family of instructions</p>
+      </P>
+      <P class="pagebreak">
+        <h3>3.c. Instructions</h3>
+        <h4>3.c.1 <b class="code">MOV destination source</b></h4>
+        <p>Reads from <b>source</b> and writes the read value to <b>destination</b>.  The source can be any readable register, or a literal number.  The destination must be a writable register.  Examples:</p>
+        <ul>
+          <li><b class="code">MOV ACC INPUT</b></li>
+          <li><b class="code">MOV OUTPUT ACC</b></li>
+          <li><b class="code">MOV ch7 99</b></li>
+        </ul>
+        <h4>3.c.2 <b class="code">DEC</b> and <b class="code">INC</b></h4>
+        <p>These decrement or increment the value stored in the <b>accumulator (ACC)</b> register.</p>
+        <h4>3.c.3 <b class="code">NOP</b></h4>
+        <p>This instruction does nothing except take 1 cycle of time.</p>
+        <h4>3.c.4 <b class="code">JMP label</b></h4>
+        <p>Moves execution to the first instruction after the specified label instead of continuing to the next instruction.</p>
+        <h4>3.c.5 <b>JUMP</b> family - <b class="code">JLZ</b>/<b class="code">JGZ</b>/<b class="code">JEZ</b>/<b class="code">JNZ</b> - <b class="code">J*Z chX label</b></h4>
+        <p>Compares the value read from the specified channel against <b>0</b> and jumps to the specified label if the comparison succeeds.</p>
+        <ul>
+          <li><b class="code">JLZ</b> - Jump if less than 0</li>
+          <li><b class="code">JGZ</b> - Jump if greater than 0</li>
+          <li><b class="code">JEZ</b> - Jump if equal to 0</li>
+          <li><b class="code">JNZ</b> - Jump if not equal to 0</li>
+        </ul>
+        <p>Note that for quantum observability reasons, nodes cannot make decisions based on their own state, so can only compare the values broadcast by <i>other</i> nodes.</p>
+      </P>
+      <P style="padding-top:100px">&nbsp;</P>
+    </div>
+
+  </body>
+</html>

@@ -11,11 +11,10 @@ Acknowledgements:
 
 Start with: `npm start` (after running `npm i` once)
 
-Plan: TIS-8829
+Plan: TIS-100-like
 
 TODO:
 * Save state to local storage, restore upon resuming level
-* Quick reference somewhere (Always up when edit box focused?)
 
 POLISH:
 * after finishing, do a pop-up with high scores on all metrics, allow edit / to next puzzle options
@@ -23,6 +22,7 @@ POLISH:
 * undo/redo (or, remove buttons)
 * !breakpoint
 * strip/ignore commas
+* sound FX
 
 
 Nodes: 22ch wide + 4ch output + 1ch margin + 3ch borders = 30ch
