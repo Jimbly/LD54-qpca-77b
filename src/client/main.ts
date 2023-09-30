@@ -4,6 +4,7 @@ const local_storage = require('glov/client/local_storage.js');
 local_storage.setStoragePrefix('LD54'); // Before requiring anything else that might load from this
 
 import assert from 'assert';
+import { editBox } from 'glov/client/edit_box';
 import * as engine from 'glov/client/engine';
 import {
   ALIGN,
@@ -78,11 +79,11 @@ const CODE_LINE_W = 22;
 const PANEL_HPAD = 8;
 const PANEL_VPAD = 4;
 
-const GOAL_X = 0;
-const GOAL_Y = 0;
+const GOAL_X = 4;
+const GOAL_Y = 4;
 const GOAL_W = CHW * 60;
 const GOAL_H = CHH * 6 + PANEL_VPAD * 2;
-const INPUT_X = 0;
+const INPUT_X = 4;
 const INPUT_W = CHW * 6 - 2;
 const OUTPUT_X = INPUT_X + INPUT_W + 2;
 const OUTPUT_W = CHW * 9;
@@ -114,8 +115,8 @@ const CHANNELS_PAD = 2;
 // const CHANNELS_W = CHANNEL_W * MAX_CHANNELS + CHANNELS_PAD * (MAX_CHANNELS - 1);
 
 // Virtual viewport for our game logic
-const game_width = 145*9;
-const game_height = 36*20;
+const game_width = NODES_X + NODES_W + 4;
+const game_height = CHANNELS_Y + CHANNELS_H + 4;
 
 let font: Font;
 
@@ -336,8 +337,9 @@ class Node {
           node_radio_activate_time[0] = engine.frame_timestamp;
           this.acc = v;
         } else if (p1 === 'output') {
-          if (!game_state.addOutput(v)) {
-            return this.stepError('Output overflow');
+          let err = game_state.addOutput(v);
+          if (err) {
+            return this.stepError(err);
           }
         } else if ((m = p1.match(/^ch(\d+)$/))) {
           let radio_idx = Number(m[1]);
@@ -513,20 +515,34 @@ class GameState {
     }
     return false;
   }
+  input_read_idx!: number;
   readInput(): number {
     let puzzle = puzzles[this.puzzle_idx];
-    if (this.input_idx >= puzzle.input.length) {
+    let idx = this.input_read_idx;
+    if (idx === -1) {
+      idx = this.input_read_idx = this.input_idx++;
+    }
+    if (idx >= puzzle.input.length) {
       return MININT;
     } else {
-      return puzzle.input[this.input_idx++];
+      return puzzle.input[idx];
     }
   }
-  addOutput(v: number): boolean {
+  did_output!: null | number;
+  addOutput(v: number): string | null {
+    if (this.did_output !== null) {
+      if (this.did_output === v) {
+        // collision, but ok
+        return null;
+      }
+      return 'Output collision';
+    }
     if (this.output.length >= MAX_OUTPUT) {
-      return false;
+      return 'Output overflow';
     }
     this.output.push(v);
-    return true;
+    this.did_output = v;
+    return null;
   }
   stepTime(): number {
     if (!this.fast_forward) {
@@ -541,6 +557,8 @@ class GameState {
     assert(this.isSimulating());
     this.tick_idx++;
     this.tick_idx_ff++;
+    this.input_read_idx = -1;
+    this.did_output = null;
     let { nodes, radios, puzzle_idx, output } = this;
 
     // step nodes
@@ -649,7 +667,8 @@ JMP loop
 end: MOV ch2 -1
 NOP
 MOV ch2 0
-MOV output ACC`);
+MOV output ACC
+NOP`);
   game_state.nodes.push(node2);
 
   let node3 = new Node('9x3');
@@ -903,14 +922,25 @@ function statePlay(dt: number): void {
     });
     y += CHH;
     x += 4;
-    font.draw({
-      color: palette_font[5],
-      x, y, z: Z.NODES + 1,
-      w: CODE_LINE_W * CHW,
-      align: ALIGN.HFIT|ALIGN.HWRAP,
-      text: node.code,
-    });
-    if (!game_state.isEditing()) {
+    if (game_state.isEditing()) {
+      let ebr = editBox({
+        key: `node${ii}`,
+        x, y, z: Z.NODES+1,
+        w: CODE_LINE_W * CHW,
+        type: 'text',
+        font_height: CHH,
+        text: node.code,
+        multiline: node_type.lines,
+      }, node.code);
+      node.setCode(ebr.text);
+    } else {
+      font.draw({
+        color: palette_font[5],
+        x, y, z: Z.NODES + 1,
+        w: CODE_LINE_W * CHW,
+        align: ALIGN.HFIT|ALIGN.HWRAP,
+        text: node.code,
+      });
       drawRect(x-1, y + step_idx * CHH, x + CODE_LINE_W*CHW+2, y + (step_idx + 1) * CHH - 1, Z.NODES+0.25, palette[0]);
     }
     if (error_idx !== -1) {

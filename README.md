@@ -15,6 +15,7 @@ Plan: TIS-8829
 
 TODO:
 * Quick reference somewhere (Always up when edit box focused?)
+* Show ACC value somewhere
 
 
 Nodes: 22ch wide + 4ch output + 1ch margin + 3ch borders = 30ch
