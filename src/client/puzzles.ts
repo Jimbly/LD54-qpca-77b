@@ -4,6 +4,7 @@ let rand = randFastCreate(1234);
 
 export type Puzzle = {
   title: string;
+  desc: string;
   goal: string;
   id: string;
   input: number[];
@@ -26,6 +27,7 @@ export const puzzles: Puzzle[] = [(function () {
   return {
     id: 'add',
     title: 'Add',
+    desc: 'Add two numbers, how hard could it be?',
     goal: `Read two numbers from INPUT
 Write their sum to OUTPUT`,
     input,
@@ -47,6 +49,7 @@ Write their sum to OUTPUT`,
   return {
     id: 'multiply',
     title: 'Multiply',
+    desc: 'Multiply two numbers, you can do this.',
     goal: `Read two numbers from INPUT
 Write their product to OUTPUT`,
     input,

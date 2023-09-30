@@ -4,15 +4,22 @@ const local_storage = require('glov/client/local_storage.js');
 local_storage.setStoragePrefix('LD54'); // Before requiring anything else that might load from this
 
 import assert from 'assert';
+import * as camera2d from 'glov/client/camera2d';
 import { editBox } from 'glov/client/edit_box';
 import * as engine from 'glov/client/engine';
 import {
   ALIGN,
   Font,
   fontStyle,
+  fontStyleColored,
   intColorFromVec4Color,
 } from 'glov/client/font';
 import * as net from 'glov/client/net';
+import {
+  ScoreSystem,
+  scoreAlloc,
+} from 'glov/client/score';
+import { scoresDraw } from 'glov/client/score_ui';
 import { spriteSetGet } from 'glov/client/sprite_sets';
 import {
   Sprite,
@@ -21,6 +28,7 @@ import {
 import * as ui from 'glov/client/ui';
 import {
   button,
+  buttonText,
   buttonWasFocused,
   drawLine,
   drawRect,
@@ -45,7 +53,7 @@ import {
   puzzles,
 } from './puzzles';
 
-const { floor } = Math;
+const { floor, min } = Math;
 
 const MININT = -999;
 const MAXINT = 999;
@@ -67,6 +75,16 @@ const palette = [
   'ebb8a4', 'ba8b79', 'd9c380'
 ].map(hexToColor);
 const palette_font = palette.map(intColorFromVec4Color);
+
+type ScoreData = {
+  loc: number;
+  nodes: number;
+  cycles: number;
+};
+
+let score_systema: ScoreSystem<ScoreData>;
+let score_systemb: ScoreSystem<ScoreData>;
+let score_systemc: ScoreSystem<ScoreData>;
 
 window.Z = window.Z || {};
 Z.BACKGROUND = 1;
@@ -461,12 +479,6 @@ class Node {
   }
 }
 
-type ScoreData = {
-  loc: number;
-  nodes: number;
-  time: number;
-};
-
 class GameState {
   nodes: Node[] = [];
   puzzle_idx = 0;
@@ -599,6 +611,7 @@ class GameState {
     }
     if (success) {
       this.state = 'win';
+      this.submitScore();
     }
   }
   won(): boolean {
@@ -613,9 +626,16 @@ class GameState {
     return {
       loc,
       nodes: nodes.length,
-      time: this.tick_idx,
+      cycles: this.tick_idx,
     };
   }
+  submitScore(): void {
+    let score_data = this.score();
+    score_systema.setScore(this.puzzle_idx, score_data);
+    score_systemb.setScore(this.puzzle_idx, score_data);
+    score_systemc.setScore(this.puzzle_idx, score_data);
+  }
+
   ff(): void {
     if (!this.isSimulating() || !this.isPlaying()) {
       this.play();
@@ -688,7 +708,7 @@ function statePlay(dt: number): void {
       color: palette_font[5],
       x: GOAL_X + PANEL_HPAD, y, w: GOAL_W - PANEL_HPAD * 2, h: GOAL_H - PANEL_VPAD*2 - CHH,
       align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
-      text: `${score.time} Ticks\n${score.loc} Lines of code\n${score.nodes} Nodes`,
+      text: `${score.cycles} Cycles\n${score.loc} Lines of code\n${score.nodes} Nodes`,
     });
   }
   font.draw({
@@ -718,7 +738,7 @@ function statePlay(dt: number): void {
         x, y: y + BUTTON_H + 12,
         w: 1000,
         align: ALIGN.HWRAP,
-        text: `Ticks: ${game_state.tick_idx}\nStatus: ${status}`,
+        text: `Cycles: ${game_state.tick_idx}\nStatus: ${status}`,
       });
     }
 
@@ -800,14 +820,17 @@ function statePlay(dt: number): void {
       tooltip: 'RTFM',
     });
     x += w + 2;
-    button({
+    if (button({
       x, y, w,
       img: sprites.icon_menu,
       shrink: 1,
       tooltip: game_state.isSimulating() ?
         'Stop, save, and return to puzzle select' :
         'Save and return to puzzle select',
-    });
+    })) {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      engine.setState(stateLevelSelect);
+    }
     x += w + 2;
   }
 
@@ -1155,8 +1178,193 @@ NOP`);
     game_state.nodes.push(node3);
   }
 
-
   engine.setState(statePlay);
+}
+
+let cur_level_idx = 0;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ColumnDef = any;
+
+const SCORE_COLUMNSA: ColumnDef[] = [
+  // widths are just proportional, scaled relative to `width` passed in
+  { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
+  { name: '', width: 60, align: ALIGN.HFIT | ALIGN.VCENTER }, // Name
+  { name: 'LOC', width: 24 },
+];
+const SCORE_COLUMNSB: ColumnDef[] = [
+  // widths are just proportional, scaled relative to `width` passed in
+  { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
+  { name: '', width: 60, align: ALIGN.HFIT | ALIGN.VCENTER }, // Name
+  { name: 'Nodes', width: 24 },
+];
+const SCORE_COLUMNSC: ColumnDef[] = [
+  // widths are just proportional, scaled relative to `width` passed in
+  { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
+  { name: '', width: 60, align: ALIGN.HFIT | ALIGN.VCENTER }, // Name
+  { name: 'CYCLES', width: 24 },
+];
+const style_score = fontStyleColored(null, palette_font[9]);
+const style_me = fontStyleColored(null, palette_font[10]);
+const style_header = fontStyleColored(null, palette_font[6]);
+function myScoreToRowA(row: unknown[], score: ScoreData): void {
+  row.push(score.loc);
+}
+function myScoreToRowB(row: unknown[], score: ScoreData): void {
+  row.push(score.nodes);
+}
+function myScoreToRowC(row: unknown[], score: ScoreData): void {
+  row.push(score.cycles);
+}
+
+function stateLevelSelect(dt: number): void {
+  const TITLE_H = CHH * 2;
+  const PAD = 4;
+  const MAX_LEVEL = puzzle_ids.length;
+  let x = 0;
+  let y = 4;
+
+  const button_h = BUTTON_H;
+  const button_w = BUTTON_H * 3;
+  const arrow_inset = 120;
+  if (buttonText({
+    x: x + arrow_inset, y,
+    h: button_h, w: button_w,
+    text: 'PREV',
+    disabled: cur_level_idx === 0,
+  })) {
+    cur_level_idx--;
+    score_systema.forceRefreshScores(cur_level_idx);
+    score_systemb.forceRefreshScores(cur_level_idx);
+    score_systemc.forceRefreshScores(cur_level_idx);
+  }
+  if (buttonWasFocused() && cur_level_idx > 0) {
+    score_systema.prefetchScores(cur_level_idx - 1);
+    score_systemb.prefetchScores(cur_level_idx - 1);
+    score_systemc.prefetchScores(cur_level_idx - 1);
+  }
+
+  if (buttonText({
+    x: 1000 - button_w - arrow_inset, y,
+    h: button_h, w: button_w,
+    text: 'NEXT',
+    disabled: cur_level_idx === MAX_LEVEL - 1,
+  })) {
+    cur_level_idx++;
+    score_systema.forceRefreshScores(cur_level_idx);
+    score_systemb.forceRefreshScores(cur_level_idx);
+    score_systemc.forceRefreshScores(cur_level_idx);
+  }
+  if (buttonWasFocused() && cur_level_idx < MAX_LEVEL - 1) {
+    score_systema.prefetchScores(cur_level_idx + 1);
+    score_systemb.prefetchScores(cur_level_idx + 1);
+    score_systemc.prefetchScores(cur_level_idx + 1);
+  }
+
+  // y += (button_h - TITLE_H) / 2;
+
+  font.draw({
+    color: palette_font[8],
+    x, y, w: 1000,
+    align: ALIGN.HCENTER|ALIGN.HWRAP,
+    size: CHH,
+    text: `${cur_level_idx + 1} / ${MAX_LEVEL}`,
+  });
+  y += CHH;
+  font.draw({
+    color: palette_font[10],
+    x, y, w: 1000,
+    align: ALIGN.HCENTER|ALIGN.HWRAP,
+    size: TITLE_H,
+    text: puzzles[cur_level_idx].title,
+  });
+  y += TITLE_H;
+  y += font.draw({
+    color: palette_font[8],
+    x, y, w: 1000,
+    align: ALIGN.HCENTER|ALIGN.HWRAP,
+    size: CHH,
+    text: puzzles[cur_level_idx].desc || puzzles[cur_level_idx].goal,
+  });
+
+  let has_score = false; // score_systema.hasScore(cur_level_idx);
+
+  const button_y = camera2d.y1() - button_h - 4;
+  const H = button_y;
+  let pad = 12;
+  const W = game_width - pad * 2;
+  const width = floor((W - pad*2)/3);
+  x = pad;
+  let score_common = {
+    width,
+    y, height: H - y,
+    z: Z.UI,
+    size: CHH,
+    line_height: CHH+8,
+    level_index: cur_level_idx,
+    style_score,
+    style_me,
+    style_header,
+    color_line: palette[0],
+    color_me_background: palette[1],
+    allow_rename: false,
+  };
+  scoresDraw({
+    ...score_common,
+    score_system: score_systema,
+    x,
+    columns: SCORE_COLUMNSA,
+    scoreToRow: myScoreToRowA,
+    allow_rename: true,
+  });
+  x += width + pad;
+
+  scoresDraw({
+    ...score_common,
+    score_system: score_systemb,
+    x,
+    columns: SCORE_COLUMNSB,
+    scoreToRow: myScoreToRowB,
+  });
+  x += width + pad;
+
+  scoresDraw({
+    ...score_common,
+    score_system: score_systemc,
+    x,
+    columns: SCORE_COLUMNSC,
+    scoreToRow: myScoreToRowC,
+  });
+
+  y = button_y;
+  if (game_state && game_state.puzzle_idx === cur_level_idx) {
+    if (buttonText({
+      x: 500 - button_w - PAD/2,
+      y,
+      w: button_w, h: button_h,
+      text: 'Resume',
+    })) {
+      engine.setState(statePlay);
+    }
+    if (buttonText({
+      x: 500 + PAD/2,
+      y,
+      w: button_w, h: button_h,
+      text: 'Restart',
+    })) {
+      startPuzzle(puzzle_ids[cur_level_idx]);
+    }
+  } else {
+    if (buttonText({
+      x: 500 - button_w/2,
+      y,
+      w: button_w, h: button_h,
+      text: has_score ? 'Restart' : 'Play',
+    })) {
+      startPuzzle(puzzle_ids[cur_level_idx]);
+    }
+  }
+
 }
 
 export function main(): void {
@@ -1206,5 +1414,114 @@ export function main(): void {
 
   init();
 
-  startPuzzle('add');
+  const ENCODE_CYCLES = 100000000;
+  const ENCODE_NODES = 100;
+  const ENCODE_LOC = 1000;
+  // min everything
+  function encodeScoreLOC(score: ScoreData): number {
+    let {
+      loc,
+      nodes,
+      cycles,
+    } = score;
+
+    loc = ENCODE_LOC - 1 - min(loc, ENCODE_LOC-1);
+    nodes = ENCODE_NODES - 1 - min(nodes, ENCODE_NODES-1);
+    cycles = ENCODE_CYCLES - 1 - min(cycles, ENCODE_CYCLES-1);
+    return loc * ENCODE_NODES * ENCODE_CYCLES + nodes * ENCODE_CYCLES + cycles;
+  }
+  function encodeScoreNodes(score: ScoreData): number {
+    let {
+      loc,
+      nodes,
+      cycles,
+    } = score;
+
+    loc = ENCODE_LOC - 1 - min(loc, ENCODE_LOC-1);
+    nodes = ENCODE_NODES - 1 - min(nodes, ENCODE_NODES-1);
+    cycles = ENCODE_CYCLES - 1 - min(cycles, ENCODE_CYCLES-1);
+    return nodes * ENCODE_CYCLES * ENCODE_LOC + cycles * ENCODE_LOC + loc;
+  }
+  function encodeScoreCycles(score: ScoreData): number {
+    let {
+      loc,
+      nodes,
+      cycles,
+    } = score;
+
+    loc = ENCODE_LOC - 1 - min(loc, ENCODE_LOC-1);
+    nodes = ENCODE_NODES - 1 - min(nodes, ENCODE_NODES-1);
+    cycles = ENCODE_CYCLES - 1 - min(cycles, ENCODE_CYCLES-1);
+    return cycles * ENCODE_LOC * ENCODE_NODES + loc * ENCODE_NODES + nodes;
+  }
+
+  function parseScoreLOC(value: number): ScoreData {
+    let loc = floor(value / (ENCODE_NODES * ENCODE_CYCLES));
+    value -= loc * ENCODE_NODES * ENCODE_CYCLES;
+    let nodes = floor(value / ENCODE_CYCLES);
+    value -= nodes * ENCODE_CYCLES;
+    loc = ENCODE_LOC - 1 - loc;
+    nodes = ENCODE_NODES - 1 - nodes;
+    let cycles = ENCODE_CYCLES - 1 - value;
+    return {
+      loc,
+      nodes,
+      cycles,
+    };
+  }
+  function parseScoreNodes(value: number): ScoreData {
+    let nodes = floor(value / (ENCODE_LOC * ENCODE_CYCLES));
+    value -= nodes * ENCODE_LOC * ENCODE_CYCLES;
+    let cycles = floor(value / ENCODE_LOC);
+    value -= cycles * ENCODE_LOC;
+    let loc = ENCODE_LOC - 1 - value;
+    nodes = ENCODE_NODES - 1 - nodes;
+    cycles = ENCODE_CYCLES - 1 - cycles;
+    return {
+      loc,
+      nodes,
+      cycles,
+    };
+  }
+  function parseScoreCycles(value: number): ScoreData {
+    let cycles = floor(value / (ENCODE_NODES * ENCODE_LOC));
+    value -= cycles * ENCODE_NODES * ENCODE_LOC;
+    let loc = floor(value / ENCODE_NODES);
+    value -= loc * ENCODE_NODES;
+    loc = ENCODE_LOC - 1 - loc;
+    let nodes = ENCODE_NODES - 1 - value;
+    cycles = ENCODE_CYCLES - 1 - cycles;
+    return {
+      loc,
+      nodes,
+      cycles,
+    };
+  }
+
+  let level_defs = puzzles.map((a) => ({ name: a.id }));
+  score_systema = scoreAlloc({
+    score_to_value: encodeScoreLOC,
+    value_to_score: parseScoreLOC,
+    level_defs: level_defs,
+    score_key: 'LD54loc'
+  });
+  score_systemb = scoreAlloc({
+    score_to_value: encodeScoreNodes,
+    value_to_score: parseScoreNodes,
+    level_defs: level_defs,
+    score_key: 'LD54nod'
+  });
+  score_systemc = scoreAlloc({
+    score_to_value: encodeScoreCycles,
+    value_to_score: parseScoreCycles,
+    level_defs: level_defs,
+    score_key: 'LD54cyc'
+  });
+
+
+  if (engine.DEBUG && false) {
+    startPuzzle('add');
+  } else {
+    engine.setState(stateLevelSelect);
+  }
 }

@@ -14,9 +14,11 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-8829
 
 TODO:
+* Save state to local storage, restore upon resuming level
 * Quick reference somewhere (Always up when edit box focused?)
 
 POLISH:
+* after finishing, do a pop-up with high scores on all metrics, allow edit / to next puzzle options
 * jmp by number doesn't seem to work, (also try negative)
 * undo/redo (or, remove buttons)
 * !breakpoint
