@@ -337,7 +337,9 @@ class Node {
     let labels: TSMap<number> = this.labels = {};
     let op_lines: Op[] = this.op_lines = [];
     for (let ii = 0; ii < lines.length; ++ii) {
-      let line = lines[ii].toLowerCase().trim();
+      let line = lines[ii].toLowerCase();
+      line = line.replace(/,/g, ' ');
+      line = line.trim();
       let m = line.match(/^([^;#]*)[;#].*$/);
       if (m) {
         line = m[1].trim();
@@ -350,7 +352,7 @@ class Node {
       if (!line) {
         continue;
       }
-      let toks = line.split(/[\s,]+/g);
+      let toks = line.split(/\s+/g);
       let op = parseOp(toks, ii);
       if (typeof op === 'string') {
         if (!this.error_str) {
@@ -606,6 +608,7 @@ class GameState {
       this.tick_counter = this.stepTime();
     } else {
       this.tick_counter = 0;
+      this.fast_forward = false;
     }
     this.state = 'play';
   }
@@ -620,6 +623,19 @@ class GameState {
       node.resetError();
     });
   }
+  ff(): void {
+    if (!this.isSimulating() || !this.isPlaying()) {
+      this.play();
+      this.fast_forward = true;
+    } else {
+      this.fast_forward = !this.fast_forward;
+    }
+    this.elapsed_time_ff = 0;
+    if (this.tick_counter > this.stepTime()) {
+      this.tick_counter = this.stepTime();
+    }
+  }
+
   activateRadio(radio_idx: number): void {
     this.radio_activate_time[radio_idx] = engine.frame_timestamp;
   }
@@ -746,25 +762,14 @@ class GameState {
   }
   submitScore(): void {
     let score_data = this.score();
-    score_systema.setScore(this.puzzle_idx, score_data);
-    score_systemb.setScore(this.puzzle_idx, score_data);
-    score_systemc.setScore(this.puzzle_idx, score_data);
+    let payload = JSON.stringify(this);
+    score_systema.setScore(this.puzzle_idx, score_data, payload);
+    score_systemb.setScore(this.puzzle_idx, score_data, payload);
+    score_systemc.setScore(this.puzzle_idx, score_data, payload);
     this.last_stats = score_data;
     bestScoreUpdate(puzzle_ids[this.puzzle_idx], score_data);
   }
 
-  ff(): void {
-    if (!this.isSimulating() || !this.isPlaying()) {
-      this.play();
-      this.fast_forward = true;
-    } else {
-      this.fast_forward = !this.fast_forward;
-    }
-    this.elapsed_time_ff = 0;
-    if (this.tick_counter > this.stepTime()) {
-      this.tick_counter = this.stepTime();
-    }
-  }
   tick(dt: number): void {
     if (!this.isPlaying()) {
       return;
@@ -797,9 +802,9 @@ function tutorialMode(): boolean {
 }
 
 const HELP = `QUICK REFERENCE
-MOV [OUTPUT|ACC|chX] [INPUT|ACC|chX|number]
+MOV [OUTPUT|ACC|CH#] [INPUT|ACC|CH#|number]
 INC/DEC/NEG - modifies ACC           NOP - sleeps 1 cycle
-JMP label; JGZ/JLZ/JEZ/JNZ chX label - >0 / <0 / =0 / <>0
+JMP label; JGZ/JLZ/JEZ/JNZ CH# label - >0 / <0 / =0 / <>0
 Conditional J*Z ops must test a signal from other node(s).
 Two signals on the same channel will sum.`;
 
@@ -2156,7 +2161,7 @@ export function main(): void {
 
 
   if (engine.DEBUG && true) {
-    autoStartPuzzle(puzzle_ids.indexOf('inc'));
+    autoStartPuzzle(0); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
   } else {
     stateTitleInit();

@@ -78,7 +78,7 @@
           <ul>
             <li>If a node is broadcasting to specific channel, it cannot read from that channel in any way until after it has stopped broadcasting (by writing a <b>0</b> to that channel)</li>
             <li>If two or more nodes are broadcasting on the same channel, any receiver will read their combined (summed) value</li>
-            <li>Though channels are theoretically limitless, the QuantumPulse&trade; Visualization Interface will only show you the values being broadcast on channels ch1 through ch14</li>
+            <li>Though channels are theoretically limitless, the QuantumPulse&trade; Visualization Interface will only show you the values being broadcast on channels CH1 through CH14</li>
             <li>Due to node execution being synchronized at <i>faster than light speed</i>, if one node reads from a channel on the same cycle that another node starts broadcasting or changes it's value, the reading node will receive the value that was being broadcast on the previous cycle.  Note: Our <i>Quantum Innovations</i> department assures us of the inaccuracy of our competitors' reductive claims that "reading from a radio channel obtains the value being broadcast on that cycle, and writing to a channel simply causes the written value to be transmitted starting on the following cycle."</li>
           </ul>
           </p>
@@ -105,7 +105,7 @@
         <p>The <b>INPUT</b> register can be read from with the <b class="code">MOV</b> instruction, which will consume one value from the input stream.  If two or more nodes read from <b>INPUT</b> at <i>exactly the same time</i> they will all receive the same value.</p>
         <h4>3.b.3 <b class="code">OUTPUT</b></h4>
         <p>The <b>OUTPUT</b> register can be written to with the <b class="code">MOV</b> instruction.  Multiple nodes writing different values to <b>OUTPUT</b> at the same time is not allowed.</p>
-        <h4>3.b.4 Radio Channels <b class="code">ch1</b>...<b class="code">chX</b></h4>
+        <h4>3.b.4 Radio Channels <b class="code">CH1</b>...<b class="code">CHX</b></h4>
         <p>Channels can be written to or read from with the <b class="code">MOV</b> instruction, as well as used as a source of comparison for the <b>JUMP</b> family of instructions</p>
         <h4>3.b.5 <b class="code">NIL</b></h4>
         <p>Writing to the <b>NIL</b> register does nothing.  Reading from the <b>NIL</b> register is the same as using the literal number <b>0</b>.</p>
@@ -126,10 +126,10 @@
         <h4>3.c.3 <b class="code">NEG</b></h4>
         <p>This negates the value stored in the <b>accumulator (ACC)</b> register (multiplies it by negative 1).</p>
         <h4>3.c.4 <b class="code">NOP</b></h4>
-        <p>This instruction does nothing except take 1 cycle of time.</p>
+        <p>This is shorthand for <b class="code">MOV ACC ACC</b> which does nothing except take 1 cycle of time.</p>
         <h4>3.c.5 <b class="code">JMP label</b></h4>
         <p>Moves execution to the first instruction after the specified label instead of continuing to the next instruction.</p>
-        <h4>3.c.6 <b>JUMP</b> family - <b class="code">JLZ</b>/<b class="code">JGZ</b>/<b class="code">JEZ</b>/<b class="code">JNZ</b> - <b class="code">J*Z chX label</b></h4>
+        <h4>3.c.6 <b>JUMP</b> family - <b class="code">JLZ</b>/<b class="code">JGZ</b>/<b class="code">JEZ</b>/<b class="code">JNZ</b> - <b class="code">J*Z CH# label</b></h4>
         <p>Compares the value read from the specified channel against <b>0</b> and jumps to the specified label if the comparison succeeds.</p>
         <ul>
           <li><b class="code">JLZ</b> - Jump if less than 0</li>

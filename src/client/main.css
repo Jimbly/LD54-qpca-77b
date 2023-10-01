@@ -144,6 +144,7 @@ canvas {
   color: #e1ccad;
   outline: none;
   --overflow: hidden;
+  overflow-x: hidden;
   text-wrap: nowrap;
 }
 

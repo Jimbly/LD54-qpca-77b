@@ -64,8 +64,11 @@ To get started, we've slotted an AstroWave 0903 node on the left for you, and yo
       INPUT - reads from the input data
       OUTPUT - writes to the output data
       ACC - accumulator register
+      ..and more! (explained in later exercises)
+    Example: MOV ACC INPUT
   INC - increment the contents of the ACC register
-`,
+
+Start typing in the AW0903 node to write some code, then press the Start arrow at the top to see how it goes!`,
   };
 }()), (function () {
   rand.reseed(5678);
@@ -97,6 +100,17 @@ To get started, we've slotted an AstroWave 0903 node on the left for you, and yo
 Write every other number to OUTPUT, starting with the second one`,
     sets,
     fixed_nodes: ['4x1'],
+    tutorial_text: `Nice job on that last one.
+
+You can probably complete this exercise using only what you already know, but we'll introduce a couple new things:
+
+The NIL register is a special register, which can be used for either operand of MOV, which when written to does nothing, and when read from always reads a 0.
+
+Important to note: all instructions are ran continuously in a loop, so after the last instruction execution returns to the first instruction.  This is how one program can process all input data.
+
+Press the ? icon in the upper right to toggle between the GOAL statement and a QUICK REFERENCE guide at any time.  Don't worry if you don't understand everything there just yet.
+
+Get to it!`
   };
 }()), (function () {
   rand.reseed(6789);
@@ -132,6 +146,26 @@ Write every other number to OUTPUT, starting with the second one`,
 Write any positive values to OUTPUT`,
     sets,
     fixed_nodes: ['9x3', '9x3'],
+    tutorial_text: `Now you're ready for the advanced stuff!
+
+To solve this exercise, you'll need to use RADIO CHANNELS.  A node can start broadcasting to a channel with MOV, for example:
+  MOV CH1 INPUT
+Or, later, in another node, read from a channel:
+  MOV ACC CH1
+
+Note: a node CANNOT read from a channel to which it is broadcasting.
+
+LABELS: Prefix any line of code with text and a colon to define a label to use for conditional jumping.  For example:
+  mylabel: MOV CH1 INPUT
+  JMP mylabel
+
+CONDITIONAL JUMPING: The conditional jump instructions all compare a value read from a channel against zero, and jump if the condition is met.
+  JLZ CH1 mylabel - Jump if CH1 is less than 0
+  JGZ CH1 mylabel - Jump if CH1 is greater than 0
+  JEZ CH1 mylabel - Jump if CH1 is equal to 0
+  JNZ CH1 mylabel - Jump if CH1 is not equal to 0
+Also useful in this exercise: the NOP instruction will simply idle for one cycle.
+`
   };
 }()), (function () {
   rand.reseed(1234);
@@ -171,6 +205,23 @@ Write any positive values to OUTPUT`,
     goal: `Read two numbers from INPUT
 Write their sum to OUTPUT`,
     sets,
+    fixed_nodes: ['9x3', '9x3', '4x1'],
+    tutorial_text: `Congratulations on getting this far!
+
+This is the final introductory exercise, they get harder after this, but you will have the freedom to start with whichever nodes you wish.
+
+To complete this exercise, you will need to take advantage of the fact that when two or more nodes are broadcasting on the same channel, any receiver will read the combined (summed) value.
+
+The only instructions we did not yet cover are:
+  NEG - negates the value in ACC (multiplies it by -1)
+  DEC - decrements the value in ACC (subtracts 1)
+However, they are probably not useful for this exercise.
+
+Hint: the JUMP instructions can also take a numerical offset instead of a label for a relative jump.
+  JGZ CH3 -1 - this jumps to the previous line
+
+Remember, to keep the Reference Manual always close at hand, and good luck on the remaining exercises!
+`
   };
 }()), (function () {
   rand.reseed(3456);

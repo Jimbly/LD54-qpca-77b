@@ -61,6 +61,7 @@ type ScoreTypeInternal<ScoreType> = ScoreType & {
 type LevelDefInternal<ScoreType> = {
   name: LevelName;
   local_score?: ScoreTypeInternal<ScoreType>; // internal to score system
+  last_payload?: string;
   last_refresh_time?: number;
   refresh_in_flight?: boolean;
   save_in_flight?: boolean;
@@ -196,14 +197,20 @@ class ScoreSystemImpl<ScoreType> {
     });
   }
 
-  private submitScore(level_idx: number, score: ScoreType, cb?: VoidFunc): void {
+  private submitScore(level_idx: number, score: ScoreType, payload: string, cb?: VoidFunc): void {
     let level = this.level_defs[level_idx].name;
     let high_score = this.score_to_value(score);
     if (!player_name) {
       return;
     }
+    let url = `${score_host}/api/scoreset?key=${this.SCORE_KEY}.${level}&name=${player_name}` +
+      `&score=${high_score}&payload=${payload}`;
+    if (escape(url).length >= 2000) {
+      url = `${score_host}/api/scoreset?key=${this.SCORE_KEY}.${level}&name=${player_name}` +
+        `&score=${high_score}&payload="truncated"`;
+    }
     fetchJSON2(
-      `${score_host}/api/scoreset?key=${this.SCORE_KEY}.${level}&name=${player_name}&score=${high_score}`,
+      url,
       (err: string | undefined, scores: HighScoreListRaw) => {
         if (!err) {
           this.handleScoreResp(level_idx, scores);
@@ -213,17 +220,20 @@ class ScoreSystemImpl<ScoreType> {
     );
   }
 
-  private saveScore(level_idx: number, obj_in: ScoreType): void {
+  private saveScore(level_idx: number, obj_in: ScoreType, payload: string): void {
     let ld = this.level_defs[level_idx];
     let obj = obj_in as ScoreTypeInternal<ScoreType>;
     ld.local_score = obj;
+    ld.last_payload = payload;
     let key = `${this.LS_KEY}.score_${ld.name}`;
     lsd[key] = JSON.stringify(obj);
     if (ld.save_in_flight) {
       return;
     }
     let doSubmit = (): void => {
-      this.submitScore(level_idx, obj, () => {
+      obj = ld.local_score!;
+      payload = ld.last_payload!;
+      this.submitScore(level_idx, obj, payload, () => {
         ld.save_in_flight = false;
         obj.submitted = true;
         if (obj === ld.local_score) {
@@ -256,19 +266,19 @@ class ScoreSystemImpl<ScoreType> {
       }
       ld.local_score = ret;
       if (!ret.submitted) {
-        this.saveScore(level_idx, ret);
+        this.saveScore(level_idx, ret, JSON.stringify({ from: 'localstorage' }));
       }
       return ret;
     }
     return null;
   }
 
-  setScore(level_idx: number, score: ScoreType): void {
+  setScore(level_idx: number, score: ScoreType, payload: string): void {
     let ld = this.level_defs[level_idx];
     let encoded = this.score_to_value(score) || 0;
     let encoded_local = ld.local_score && this.score_to_value(ld.local_score) || 0;
     if (encoded > encoded_local) {
-      this.saveScore(level_idx, score);
+      this.saveScore(level_idx, score, payload);
     }
   }
 
@@ -276,7 +286,7 @@ class ScoreSystemImpl<ScoreType> {
     this.level_defs.forEach((ld, level_idx) => {
       if (ld.local_score) {
         this.clearScore(ld.name, old_name, () => {
-          this.saveScore(level_idx, ld.local_score!);
+          this.saveScore(level_idx, ld.local_score!, JSON.stringify({ rename: old_name }));
         });
       }
     });
