@@ -108,6 +108,11 @@ export function link(param) {
             state.clicked = true;
             in_event.handle('mouseup', ev);
           };
+        } else {
+          // Not sure this is useful: sound doesn't play until returning to the page
+          // a_elem.onclick = function (ev) {
+          //   state.clicked = true;
+          // };
         }
         elem.appendChild(a_elem);
         state.a_elem = a_elem;

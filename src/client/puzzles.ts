@@ -2,6 +2,7 @@ export const MININT = -7*70;
 export const MAXINT = 7*70;
 
 import assert from 'assert';
+import * as engine from 'glov/client/engine';
 import { randFastCreate } from 'glov/client/rand_fast';
 
 let rand = randFastCreate(1);
@@ -184,6 +185,19 @@ Write the largest number from the list to OUTPUT`,
     sets,
   };
 }())];
+
+if (engine.DEBUG) {
+  puzzles.push({
+    id: 'debug',
+    title: 'Debug',
+    desc: 'Trivial',
+    goal: 'Line 1\nLine 2',
+    sets: [{
+      input: [1,2,3],
+      output: [1,2,3],
+    }],
+  });
+}
 
 puzzles.forEach(function (puzzle) {
   puzzle.sets.forEach(function (set) {

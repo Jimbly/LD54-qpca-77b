@@ -1,30 +1,30 @@
-LD54 - TBD
+LD54 - Limited Space
 ============================
 
-Ludum Dare 54 Entry by Jimbly - "Title"
+Ludum Dare 54 Entry by Jimbly - "QPCA-77B"
 
-* Play here: [dashingstrike.com/LudumDare/LD53/](http://www.dashingstrike.com/LudumDare/LD54/)
+* Play here: [dashingstrike.com/LudumDare/LD54/](http://www.dashingstrike.com/LudumDare/LD54/)
 * Using [Javascript libGlov/GLOV.js framework](https://github.com/Jimbly/glovjs)
 
 Acknowledgements:
-* [name](https://link) font
+* [Perfect DOS VGA](https://www.dafont.com/perfect-dos-vga-437.font) font
 
 Start with: `npm start` (after running `npm i` once)
 
 Plan: TIS-100-like
 
 TODO:
+* strip/ignore commas
+* sound FX
 * consider: a couple ops to make logic easier, but less efficient?
 * more puzzles - more easier ones
 
 POLISH:
+* title screen, startup sequence
+* different BG color, a bit more color usage
 * F-hotkeys for each main action
-* after finishing, do a pop-up with high scores on all metrics, allow edit / to next puzzle options
 * jmp by number doesn't seem to work, (also try negative)
-* undo/redo (or, remove buttons)
 * !breakpoint
-* strip/ignore commas
-* sound FX
 
 
 Nodes: 22ch wide + 4ch output + 1ch margin + 3ch borders = 30ch

@@ -14,6 +14,7 @@ import {
   fontStyleColored,
   intColorFromVec4Color,
 } from 'glov/client/font';
+import { KEYS } from 'glov/client/input';
 import { link } from 'glov/client/link';
 import { localStorageGet, localStorageSet } from 'glov/client/local_storage';
 import * as net from 'glov/client/net';
@@ -46,6 +47,7 @@ import {
   clamp,
   lerp,
   mod,
+  plural,
 } from 'glov/common/util';
 import {
   Vec4,
@@ -96,6 +98,7 @@ Z.BACKGROUND = 1;
 Z.SPRITES = 10;
 Z.UI = 100;
 Z.NODES = 110;
+Z.OVERLAY = 200;
 
 const BUTTON_H = 48;
 
@@ -745,7 +748,12 @@ function undoPush(force_save: boolean): void {
   let saved = game_state.toJSON();
   let saved_text = JSON.stringify(saved);
   if (saved_text !== last_saved) {
-    localStorageSet(`p${puzzle_id}.${cur_level_slot}`, saved_text);
+    let storage_key = `p${puzzle_id}.${cur_level_slot}`;
+    if (saved.stats && !(saved.stats as DataObject).nodes) {
+      localStorageSet(storage_key, undefined);
+    } else {
+      localStorageSet(storage_key, saved_text);
+    }
     last_saved = saved_text;
     if (undo_idx !== -1) {
       undo_stack = undo_stack.slice(0, undo_idx);
@@ -803,6 +811,8 @@ function init(): void {
   loadUISprite('node_panel_info', [16, 16, 16], [32, 16, 16]);
 }
 
+let cur_level_idx = 0;
+
 let last_focus: string = '';
 function statePlay(dt: number): void {
   game_state.tick(dt);
@@ -810,12 +820,124 @@ function statePlay(dt: number): void {
   let { nodes, puzzle_idx, input_idx, radios, radio_activate_time, set_idx } = game_state;
   let puzzle = puzzles[puzzle_idx];
 
+  if (game_state.won()) {
+    // do overlay
+    let score = game_state.score();
+    let w = game_width/2;
+    let h = game_height/2;
+    let x = (game_width - w)/2;
+    let y = (game_height - h)/2;
+    let y1 = y + h;
+    let z = Z.OVERLAY;
+    let panel_param = {
+      x, y, w, h, z,
+      sprite: ui.sprites.node_panel_info,
+    };
+
+    z++;
+    y += PANEL_VPAD;
+
+    font.draw({
+      color: palette_font[10],
+      x, y, z, w,
+      align: ALIGN.HCENTERFIT,
+      text: 'SUCCESS!',
+    });
+
+    y += CHH + 8;
+    y += font.draw({
+      color: palette_font[5],
+      x, y, z, w, h,
+      align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
+      text: `YOUR SCORE:\n${score.loc} Lines of code\n${score.nodes} Nodes\n${score.cycles} Cycles`,
+    }) + 16;
+
+    let scoresa = score_systema.getHighScores(game_state.puzzle_idx);
+    let scoresb = score_systema.getHighScores(game_state.puzzle_idx);
+    let scoresc = score_systema.getHighScores(game_state.puzzle_idx);
+
+    y += font.draw({
+      color: palette_font[5],
+      x, y, z, w, h,
+      align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
+      text: 'HIGH SCORE:\n' +
+        `${scoresa && scoresa.length ? scoresa[0].score.loc : '?'} Lines of code` +
+        `${scoresa && scoresa.length ? ` (${scoresa[0].name})` : ''}\n` +
+        `${scoresb && scoresb.length ? scoresb[0].score.nodes : '?'} Nodes` +
+        `${scoresb && scoresb.length ? ` (${scoresb[0].name})` : ''}\n` +
+        `${scoresc && scoresc.length ? scoresc[0].score.cycles : '?'} Cycles` +
+        `${scoresc && scoresc.length ? ` (${scoresc[0].name})` : ''}`,
+    }) + 16;
+
+    let no_next_exercise = game_state.puzzle_idx === puzzles.length - 1;
+    if (no_next_exercise) {
+      y += font.draw({
+        color: palette_font[0],
+        x, y, z, w, h,
+        align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
+        text: 'CONGRATULATIONS!\n' +
+          'For completing the final training exercise you have earned' +
+          ' yourself a QPCA-77B Professional Certification, Rev IV.',
+      }) + 16;
+    }
+
+    y = y1 - BUTTON_H - PANEL_VPAD;
+    x += PANEL_HPAD;
+    w -= PANEL_HPAD * 2;
+    let button_w = floor((w - 8*2)/3);
+    if (buttonText({
+      x, y, z,
+      w: button_w,
+      text: 'Keep playing',
+    })) {
+      game_state.stop();
+    }
+    x += button_w + 8;
+
+    if (buttonText({
+      x, y, z,
+      w: button_w,
+      text: 'Exit to Menu',
+    })) {
+      game_state.stop();
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      engine.setState(stateLevelSelect);
+    }
+    x += button_w + 8;
+
+    if (buttonText({
+      x, y, z,
+      w: button_w,
+      text: 'Next Exercise',
+      disabled: no_next_exercise,
+    })) {
+      let new_puzzle_idx = game_state.puzzle_idx + 1;
+      let new_puzzle_id = puzzle_ids[new_puzzle_idx];
+      cur_level_slot = 0;
+      let storage_key = `p${new_puzzle_id}.${cur_level_slot}`;
+      let saved_data = localStorageGet(storage_key);
+      if (saved_data) {
+        cur_level_idx = new_puzzle_idx;
+        game_state = new GameState();
+        game_state.fromJSON(new_puzzle_idx, JSON.parse(saved_data));
+        undoReset();
+        engine.setState(statePlay);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        startPuzzle(new_puzzle_id);
+      }
+    }
+    x += button_w + 8;
+
+    panel(panel_param);
+  }
+
   // draw goal
   panel({
     x: GOAL_X, y: GOAL_Y, w: GOAL_W, h: GOAL_H,
     sprite: ui.sprites.node_panel_info,
   });
-  if (game_state.won()) {
+  if (game_state.won() && false) {
     let score = game_state.score();
     let y = GOAL_Y + PANEL_VPAD + CHH + 4;
     font.draw({
@@ -865,12 +987,14 @@ function statePlay(dt: number): void {
       });
     }
 
+    let disabled = game_state.hasError() || game_state.won();
     if (button({
       x, y, w,
       img: game_state.isPlaying() ? sprites.icon_pause : sprites.icon_play,
       shrink: 1,
-      tooltip: game_state.isPlaying() ? 'Pause' : 'Start',
-      disabled: game_state.hasError() || game_state.won(),
+      tooltip: game_state.isPlaying() ? '[F1] Pause' : '[F1] Start',
+      disabled,
+      hotkey: KEYS.F1,
     })) {
       undoPush(true);
       game_state.play();
@@ -880,10 +1004,11 @@ function statePlay(dt: number): void {
       x, y, w,
       img: sprites.icon_step,
       shrink: 1,
-      tooltip: !game_state.isSimulating() ? 'Start paused' : !game_state.isPlaying() ?
-        'Step 1 instruction' :
-        'Step 1 instruction then pause',
-      disabled: game_state.hasError() || game_state.won(),
+      tooltip: !game_state.isSimulating() ? '[F2] Start paused' : !game_state.isPlaying() ?
+        '[F2] Step 1 instruction' :
+        '[F2] Step 1 instruction then pause',
+      disabled,
+      hotkey: KEYS.F2,
     })) {
       if (!game_state.isSimulating()) {
         // just start playing and pause
@@ -903,8 +1028,9 @@ function statePlay(dt: number): void {
       x, y, w,
       img: sprites.icon_ff,
       shrink: 1,
-      tooltip: 'Fast-forward',
-      disabled: game_state.hasError() || game_state.won(),
+      tooltip: '[F3] Fast-forward',
+      disabled,
+      hotkey: KEYS.F3,
     })) {
       if (!game_state.isSimulating()) {
         undoPush(true);
@@ -917,7 +1043,8 @@ function statePlay(dt: number): void {
         x, y, w,
         img: sprites.icon_stop,
         shrink: 1,
-        tooltip: 'Stop',
+        tooltip: '[F4] Stop',
+        hotkey: KEYS.F4,
       })) {
         game_state.stop();
       }
@@ -928,8 +1055,9 @@ function statePlay(dt: number): void {
         x, y, w,
         img: sprites.icon_undo,
         shrink: 1,
-        tooltip: 'Undo',
+        tooltip: '[F8] Undo',
         disabled: !canUndo(),
+        hotkey: KEYS.F8,
       })) {
         undoUndo();
       }
@@ -938,8 +1066,9 @@ function statePlay(dt: number): void {
         x, y, w,
         img: sprites.icon_redo,
         shrink: 1,
-        tooltip: 'Redo',
+        tooltip: '[F9] Redo',
         disabled: !canRedo(),
+        hotkey: KEYS.F9,
       })) {
         undoRedo();
       }
@@ -949,7 +1078,7 @@ function statePlay(dt: number): void {
       x, y, w,
       img: sprites.icon_help,
       shrink: 1,
-      tooltip: 'RTFM',
+      tooltip: 'Toggle Quick Reference',
     })) {
       mode_quick_reference = !mode_quick_reference;
     }
@@ -961,6 +1090,7 @@ function statePlay(dt: number): void {
       tooltip: game_state.isSimulating() ?
         'Stop, save, and return to exercise select' :
         'Save and return to exercise select',
+      hotkey: KEYS.ESC,
     })) {
       undoPush(true);
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -1219,13 +1349,16 @@ function statePlay(dt: number): void {
     if (avail_h >= node_types['4x1'].h) {
       let button_w = floor((x1 - x - 4 * (NUM_NODE_TYPES-1)) / NUM_NODE_TYPES);
       for (let key in node_types) {
+        let node_type = node_types[key];
         if (button({
           x,
           y: node_y[column],
           // font_height: CHH * 2,
           w: button_w,
-          text: `+${node_types[key].title}`,
-          disabled: node_types[key].h > avail_h,
+          text: `+${node_type.title}`,
+          disabled: node_type.h > avail_h,
+          tooltip: `Add a ${node_type.title} node\n` +
+            `${node_type.lines} LOC\n${node_type.radios} ${plural(node_type.radios, 'Radio')}`,
         })) {
           let node = new Node(key);
           node.pos[0] = column;
@@ -1283,6 +1416,7 @@ function statePlay(dt: number): void {
     w: BUTTON_H * 4, h: BUTTON_H,
     text: 'Reference Manual',
     url: `${getURLBase()}manual.html`,
+    tooltip: 'RTFM',
   };
   if (link(param)) {
     playUISound('button_click');
@@ -1298,6 +1432,7 @@ function statePlay(dt: number): void {
 }
 
 function startPuzzle(id: string): void {
+  cur_level_idx = puzzle_ids.indexOf(id);
   mode_quick_reference = false;
   let idx = puzzle_ids.indexOf(id);
   assert(idx !== -1);
@@ -1343,8 +1478,6 @@ NOP`);
   undoReset();
   engine.setState(statePlay);
 }
-
-let cur_level_idx = 0;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ColumnDef = any;
@@ -1662,6 +1795,12 @@ export function main(): void {
   }
   font = engine.font;
 
+  window.addEventListener('keydown',function (e) {
+    if (e.keyCode === 112 || e.keyCode === 113 || e.keyCode === 114) {
+      e.preventDefault();
+    }
+  });
+
   // Perfect sizes for pixely modes
   ui.scaleSizes(13 / 32);
   ui.setFontHeight(16);
@@ -1783,7 +1922,14 @@ export function main(): void {
 
 
   if (engine.DEBUG && true) {
-    startPuzzle('mult2');
+    cur_level_idx = puzzle_ids.indexOf('debug');
+    cur_level_slot = 0;
+    game_state = new GameState();
+    game_state.fromJSON(cur_level_idx, JSON.parse(localStorageGet('pdebug.0') as string));
+    undoReset();
+    engine.setState(statePlay);
+    game_state.ff();
+    // startPuzzle('debug');
   } else {
     engine.setState(stateLevelSelect);
   }
