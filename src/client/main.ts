@@ -89,7 +89,7 @@ function hexToColor(hex: string): Vec4 {
 const palette = [
   '77a6a9', '56787a', '618fad', '45657a',
   '333333', 'e1ccad', 'c24d3f', '963c31',
-  'ebb8a4', 'ba8b79', 'd9c380'
+  'ebb8a4', 'ba8b79', 'd9c380', '232323',
 ].map(hexToColor);
 const palette_font = palette.map(intColorFromVec4Color);
 
@@ -122,13 +122,13 @@ const PANEL_VPAD = 4;
 const GOAL_X = 4;
 const GOAL_Y = 4;
 const GOAL_W = CHW * 60;
-const GOAL_H = CHH * 6 + PANEL_VPAD * 2;
+const GOAL_H = CHH * 4 + PANEL_VPAD * 2;
 const INPUT_X = 4;
 const INPUT_W = CHW * 6 - 2;
 const OUTPUT_X = INPUT_X + INPUT_W + 2;
 const OUTPUT_W = CHW * 9;
 const NODES_X = OUTPUT_X + OUTPUT_W + 2;
-const NODES_Y = CHH * 7;
+const NODES_Y = CHH * 5;
 const NODE_W = CHW * 28;
 const NODES_W = NODE_W * 3 + CHW * 2 - 2;
 const NODES_H = CHH * 28;
@@ -144,7 +144,7 @@ const INPUT_H = NODES_H;
 const OUTPUT_H = INPUT_H;
 
 const CONTROLS_X = GOAL_X + GOAL_W + 4;
-const CONTROLS_Y = 8;
+const CONTROLS_Y = 4;
 
 const CHANNELS_X = 4;
 const CHANNELS_Y = NODES_Y + NODES_H + 4;
@@ -214,7 +214,9 @@ function bestScoreUpdate(puzzle_id: string, score: ScoreData): void {
 }
 
 function queueTransition(): void {
-  transition.queue(Z.TRANSITION_FINAL, transition.fade(100));
+  if (engine.frame_index > 1) {
+    transition.queue(Z.TRANSITION_FINAL, transition.fade(100));
+  }
 }
 
 class NodeType {
@@ -739,7 +741,7 @@ class GameState {
     this.tick_idx++;
     this.input_read_idx = -1;
     this.did_output = null;
-    let { nodes, radios, puzzle_idx, output, input_idx } = this;
+    let { nodes, radios, puzzle_idx, output } = this;
 
     // step nodes
     nodes.forEach((node) => {
@@ -758,7 +760,7 @@ class GameState {
     // check victory condition
     let puzzle = puzzles[puzzle_idx];
     let success = output.length === puzzle.sets[this.set_idx].output.length &&
-      input_idx >= puzzle.sets[this.set_idx].input.length;
+      this.input_idx >= puzzle.sets[this.set_idx].input.length;
     for (let ii = 0; success && ii < output.length; ++ii) {
       if (output[ii] !== puzzle.sets[this.set_idx].output[ii]) {
         success = false;
@@ -966,6 +968,8 @@ function autoStartPuzzle(new_puzzle_idx: number): void {
 
 let last_focus: string = '';
 function statePlay(dt: number): void {
+  v4copy(engine.border_clear_color, palette[11]);
+  v4copy(engine.border_color, palette[11]);
   game_state.tick(dt);
 
   let { nodes, puzzle_idx, input_idx, radios, radio_activate_time, set_idx } = game_state;
@@ -976,10 +980,10 @@ function statePlay(dt: number): void {
   if (game_state.won()) {
     // do overlay
     let score = game_state.score();
-    let w = game_width/2;
-    let h = game_height/2;
-    let x = (game_width - w)/2;
-    let y = (game_height - h)/2;
+    let w = floor(game_width/2);
+    let h = floor(game_height* 0.55);
+    let x = floor((game_width - w)/2);
+    let y = floor((game_height - h)/2);
     let y1 = y + h;
     let z = Z.OVERLAY;
     let panel_param = {
@@ -991,7 +995,7 @@ function statePlay(dt: number): void {
     y += PANEL_VPAD;
 
     font.draw({
-      color: palette_font[10],
+      color: palette_font[8],
       x, y, z, w,
       align: ALIGN.HCENTERFIT,
       text: `GOAL COMPLETE: ${puzzle.title}`,
@@ -1032,7 +1036,7 @@ function statePlay(dt: number): void {
         x, y, z, w, h,
         align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
         text: 'CONGRATULATIONS!\n' +
-          'For completing the final training exercise you have earned' +
+          'For completing the final training exercise, you have earned' +
           ' yourself a QPCA-77B Professional Certification, Rev IV.',
       }) + 16;
     }
@@ -1124,10 +1128,13 @@ function statePlay(dt: number): void {
       }
       font.draw({
         color: palette_font[5],
-        x, y: y + BUTTON_H + 12,
-        w: 1000,
-        align: ALIGN.HWRAP,
-        text: `Cycles: ${game_state.tick_idx}\nStatus: ${status}`,
+        x, y: y + BUTTON_H + 8,
+        text: `Cycles: ${game_state.tick_idx}`,
+      });
+      font.draw({
+        color: palette_font[5],
+        x: x + 214, y: y + BUTTON_H + 8,
+        text: `Status: ${status}`,
       });
     }
 
@@ -1381,7 +1388,7 @@ function statePlay(dt: number): void {
     });
     y+=2;
     font.draw({
-      color: palette_font[7],
+      color: palette_font[4],
       x, y, z: Z.NODES + 1,
       w: NODE_W,
       text: `${node_type.title} ($${node_type.cost})`,
@@ -1515,7 +1522,7 @@ function statePlay(dt: number): void {
           // font_height: CHH * 2,
           w: button_w,
           text: `+${node_type.title}`,
-          disabled: node_type.h > avail_h,
+          disabled: node_type.h > avail_h || !game_state.isEditing(),
           tooltip: `Add a ${node_type.title} node\n` +
             `${node_type.lines} LOC\n${node_type.radios} ${plural(node_type.radios, 'Radio')}`,
         })) {
@@ -1676,6 +1683,8 @@ const MAX_SLOTS = 3;
 
 let choosing_new_game = false;
 function stateLevelSelect(dt: number): void {
+  v4copy(engine.border_clear_color, palette[4]);
+  v4copy(engine.border_color, palette[4]);
   const TITLE_H = CHH * 2;
   // const PAD = 4;
   const MAX_LEVEL = puzzle_ids.length;
@@ -1974,6 +1983,8 @@ function stateTitleInit(): void {
 }
 const style_title = fontStyleColored(null, palette_font[5]);
 function stateTitle(dt: number): void {
+  v4copy(engine.border_clear_color, palette[4]);
+  v4copy(engine.border_color, palette[4]);
   let W = game_width;
   let H = game_height;
 
@@ -2117,8 +2128,8 @@ export function main(): void {
     null,
     fontStyle(null, { color: palette_font[5] }),
     null);
-  v4copy(engine.border_clear_color, palette[4]);
-  v4copy(engine.border_color, palette[4]);
+  v4copy(engine.border_clear_color, palette[11]);
+  v4copy(engine.border_color, palette[11]);
   ui.uiBindSounds({
     button_click: ['click1', 'click2', 'click3', 'click4', 'click5', 'click6'],
     error: 'error',
@@ -2239,9 +2250,9 @@ export function main(): void {
 
   stateTitleInit();
   if (engine.DEBUG && true) {
-    // autoStartPuzzle(0); // puzzle_ids.indexOf('inc'));
+    autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
-    engine.setState(stateLevelSelect);
+    // engine.setState(stateLevelSelect);
   } else {
     engine.setState(stateTitle);
   }

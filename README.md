@@ -8,6 +8,7 @@ Ludum Dare 54 Entry by Jimbly - "QPCA-77B"
 
 Acknowledgements:
 * [Perfect DOS VGA](https://www.dafont.com/perfect-dos-vga-437.font) font
+* [Retro Space Palette](https://lospec.com/palette-list/retro-space)
 
 Start with: `npm start` (after running `npm i` once)
 
@@ -16,7 +17,6 @@ Plan: TIS-100-like
 TODO:
 
 POLISH:
-* different BG color, a bit more color usage
 * show your best and your previous best on run summary
 * paper background for manual, PDF version
 * vertical wipe (dithered?) transition instead of fade

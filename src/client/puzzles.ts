@@ -444,7 +444,7 @@ if (engine.DEBUG) {
     id: 'debug2',
     title: 'Debug',
     desc: 'Trivial',
-    goal: 'Line 1\nLine 2',
+    goal: 'Line 1\nLine 2\nLine 3',
     sets: [{
       input: [1,2,3],
       output: [1,2,3],
