@@ -193,7 +193,7 @@ type Op = {
   p2: string | number | null;
   source_line: number;
 };
-const OKTOK = arrayToSet(['input', 'output', 'acc']);
+const OKTOK = arrayToSet(['input', 'output', 'acc', 'nil']);
 function parseOp(toks: string[], source_line: number): Op | string {
   let instr = toks[0];
   assert(instr);
@@ -224,12 +224,15 @@ function parseOp(toks: string[], source_line: number): Op | string {
       }
     } else { // number or register, and parameter is not a number, so must be a register
       if (OKTOK[v] || v.match(/^ch[1-9]\d*$/)) {
-        if (type === 'register' && v === 'input') {
+        if (type === 'number' && v === 'nil') {
+          p[ii] = 0;
+        } else if (type === 'register' && v === 'input') {
           return 'Cannot write to INPUT';
         } else if (type === 'number' && v === 'output') {
           return 'Cannot read from OUTPUT';
+        } else {
+          p[ii] = v;
         }
-        p[ii] = v;
       } else {
         return `Invalid operand "${v.toUpperCase()}"`;
       }
@@ -386,7 +389,9 @@ class Node {
         }
         // Assign to output
         assert(typeof p1 === 'string');
-        if (p1 === 'acc') {
+        if (p1 === 'nil') {
+          // nothing
+        } else if (p1 === 'acc') {
           node_radio_activate_time[0] = engine.frame_timestamp;
           this.acc = v;
         } else if (p1 === 'output') {
@@ -1972,7 +1977,7 @@ export function main(): void {
   });
 
 
-  if (engine.DEBUG && false) {
+  if (engine.DEBUG && true) {
     autoStartPuzzle(puzzle_ids.indexOf('alt'));
     // game_state.ff();
   } else {

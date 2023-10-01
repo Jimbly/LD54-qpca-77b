@@ -107,7 +107,9 @@
         <p>The <b>OUTPUT</b> register can be written to with the <b class="code">MOV</b> instruction.  Multiple nodes writing different values to <b>OUTPUT</b> at the same time is not allowed.</p>
         <h4>3.b.4 Radio Channels <b class="code">ch1</b>...<b class="code">chX</b></h4>
         <p>Channels can be written to or read from with the <b class="code">MOV</b> instruction, as well as used as a source of comparison for the <b>JUMP</b> family of instructions</p>
-        <h4>3.b.4 Accepted values</h4>
+        <h4>3.b.5 <b class="code">NIL</b></h4>
+        <p>Writing to the <b>NIL</b> register does nothing.  Reading from the <b>NIL</b> register is the same as using the literal number <b>0</b>.</p>
+        <h4>3.b.6 Accepted values</h4>
         <p>All values in registers will be clamped between negative and positive Biblical Infinity (seventy times seven).</p>
       </P>
       <P class="pagebreak">
