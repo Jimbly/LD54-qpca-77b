@@ -14,9 +14,12 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-100-like
 
 TODO:
-* Save state to local storage, restore upon resuming level
+* more puzzles (max of two, max of N)
+* also link to reference manual during a puzzle?
+* need 3 input/output sets to prevent simple output hacks
 
 POLISH:
+* F-hotkeys for each main action
 * after finishing, do a pop-up with high scores on all metrics, allow edit / to next puzzle options
 * jmp by number doesn't seem to work, (also try negative)
 * undo/redo (or, remove buttons)

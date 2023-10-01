@@ -78,8 +78,8 @@
           <ul>
             <li>If a node is broadcasting to specific channel, it cannot read from that channel in any way until after it has stopped broadcasting</li>
             <li>If two nodes are broadcasting on the same channel, and receiver will read their combined (summed) value</li>
-            <li>Though channels are theoretically limitless, the QuantumPulse&trade; visualization interface will only show you the values being broadcast on channels 1 through 18</li>
-            <li>Due to node execution being synchronized at <i>faster than light speed</i>, if one node reads from a channel on the same cycle that another node starts broadcasting or changes it's value, the reading node will receive the value that was being broadcast on the previous cycle</li>
+            <li>Though channels are theoretically limitless, the QuantumPulse&trade; Visualization Interface will only show you the values being broadcast on channels 1 through 18</li>
+            <li>Due to node execution being synchronized at <i>faster than light speed</i>, if one node reads from a channel on the same cycle that another node starts broadcasting or changes it's value, the reading node will receive the value that was being broadcast on the previous cycle. Note: Our <i>Quantum Innovations</i> department assures us of the inaccuracy of our competitors' reductive claims that "reading from a radio channel obtains the value being broadcast on that cycle, and writing to a channel simply causes the written value to be transmitted starting on the following cycle".</li>
           </ul>
           </p>
         </div>
@@ -100,7 +100,7 @@
 
         <h3>3.b. Registers</h3>
         <h4>3.b.1 <b class="code">ACC</b></h4>
-        <p>The <b>ACC (accumulator)</b> register is a general purpose register that can be read from or written to via the <b class="code">MOV</b> instruction, and modified with the <b class="code">INC</b> and <b class="code">DEC</b> instructions.</p>
+        <p>The <b>ACC (accumulator)</b> register is a general purpose register that can be read from or written to via the <b class="code">MOV</b> instruction, and modified with the <b class="code">INC</b>, <b class="code">DEC</b>, and <b class="code">NEG</b> instructions.</p>
         <h4>3.b.2 <b class="code">INPUT</b></h4>
         <p>The <b>INPUT</b> register can be read from with the <b class="code">MOV</b> instruction, which will consume one value from the input stream.  If two or more nodes read from <b>INPUT</b> at <i>exactly the same time</i> they will all receive the same value.</p>
         <h4>3.b.3 <b class="code">OUTPUT</b></h4>
@@ -119,11 +119,13 @@
         </ul>
         <h4>3.c.2 <b class="code">DEC</b> and <b class="code">INC</b></h4>
         <p>These decrement or increment the value stored in the <b>accumulator (ACC)</b> register.</p>
-        <h4>3.c.3 <b class="code">NOP</b></h4>
+        <h4>3.c.3 <b class="code">NEG</b></h4>
+        <p>This negates the value stored in the <b>accumulator (ACC)</b> register (multiplies it by negative 1).</p>
+        <h4>3.c.4 <b class="code">NOP</b></h4>
         <p>This instruction does nothing except take 1 cycle of time.</p>
-        <h4>3.c.4 <b class="code">JMP label</b></h4>
+        <h4>3.c.5 <b class="code">JMP label</b></h4>
         <p>Moves execution to the first instruction after the specified label instead of continuing to the next instruction.</p>
-        <h4>3.c.5 <b>JUMP</b> family - <b class="code">JLZ</b>/<b class="code">JGZ</b>/<b class="code">JEZ</b>/<b class="code">JNZ</b> - <b class="code">J*Z chX label</b></h4>
+        <h4>3.c.6 <b>JUMP</b> family - <b class="code">JLZ</b>/<b class="code">JGZ</b>/<b class="code">JEZ</b>/<b class="code">JNZ</b> - <b class="code">J*Z chX label</b></h4>
         <p>Compares the value read from the specified channel against <b>0</b> and jumps to the specified label if the comparison succeeds.</p>
         <ul>
           <li><b class="code">JLZ</b> - Jump if less than 0</li>
@@ -133,8 +135,14 @@
         </ul>
         <p>Note that for quantum observability reasons, nodes cannot make decisions based on their own state, so can only compare the values broadcast by <i>other</i> nodes.</p>
       </P>
+      <P class="pagebreak">
+        <h2>4. Training Exercises</h2>
+        <p>The QuantumPulse&trade; Visualization Interface contains a series of training exercises that will help you master your craft!  Every exercise contains a description of the problem you need to solve, and shows you a set if input and expected output that you need to match.  To pass an exercise, your solution needs to solve the provided input/output as well as 2 more input/output sets which will only appear after you've solved the first ones.</p>
+      </P>
       <P style="padding-top:100px">&nbsp;</P>
+      <center>Copywrite &copy;1977 QuantumPulse Ltd, Novi Grad, Sokovia</center>
     </div>
+
 
   </body>
 </html>

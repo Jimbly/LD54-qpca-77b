@@ -15,12 +15,14 @@ import {
   intColorFromVec4Color,
 } from 'glov/client/font';
 import { link } from 'glov/client/link';
+import { localStorageGet, localStorageSet } from 'glov/client/local_storage';
 import * as net from 'glov/client/net';
 import {
   ScoreSystem,
   scoreAlloc,
 } from 'glov/client/score';
 import { scoresDraw } from 'glov/client/score_ui';
+import { spotGetCurrentFocusKey } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
 import {
   Sprite,
@@ -38,7 +40,7 @@ import {
   playUISound,
 } from 'glov/client/ui';
 import { getURLBase } from 'glov/client/urlhash';
-import { TSMap } from 'glov/common/types';
+import { DataObject, TSMap } from 'glov/common/types';
 import {
   arrayToSet,
   clamp,
@@ -173,6 +175,7 @@ const OPDEF: TSMap<OpDef> = {
   mov: { params: ['register', 'number'] },
   dec: { params: [] },
   inc: { params: [] },
+  neg: { params: [] },
   jmp: { params: ['label'] },
   jlz: { params: ['channel', 'label'] },
   jez: { params: ['channel', 'label'] },
@@ -251,6 +254,17 @@ class Node {
   constructor(public type: string) {
     this.node_type = node_types[type];
     this.resetSim();
+  }
+  toJSON(): DataObject {
+    return {
+      x: this.pos[0],
+      type: this.type,
+      code: this.code,
+    };
+  }
+  fromJSON(obj: DataObject): void {
+    this.pos[0] = obj.x as number;
+    this.setCode(obj.code as string);
   }
   resetSim(): void {
     this.acc = 0;
@@ -412,6 +426,9 @@ class Node {
       case 'inc':
         this.acc = clamp(this.acc + 1, MININT, MAXINT);
         break;
+      case 'neg':
+        this.acc = clamp(-this.acc, MININT, MAXINT);
+        break;
       case 'jlz':
       case 'jez':
       case 'jgz':
@@ -494,6 +511,19 @@ class GameState {
   fast_forward = false;
   radios: Partial<Record<number, number>> = {};
   radio_activate_time: Partial<Record<number, number>> = {};
+  toJSON(): DataObject {
+    return { nodes: this.nodes.map((a) => a.toJSON()) };
+  }
+  fromJSON(puzzle_idx: number, obj: DataObject): void {
+    this.puzzle_idx = puzzle_idx;
+    this.state = 'edit';
+    this.nodes = (obj.nodes as DataObject[]).map((nobj: DataObject) => {
+      let node = new Node(nobj.type as string);
+      node.fromJSON(nobj);
+      return node;
+    });
+    this.resetSim();
+  }
   resetSim(): void {
     this.output = [];
     this.input_idx = 0;
@@ -671,12 +701,69 @@ class GameState {
 
 let game_state: GameState;
 let mode_quick_reference = false;
+let cur_level_slot = 0;
+
 const HELP = `QUICK REFERENCE
 MOV [chX|OUTPUT|ACC] [chX|INPUT|ACC|number]
-INC / DEC - modifies ACC             NOP - sleeps 1 cycle
+INC/DEC/NEG - modifies ACC           NOP - sleeps 1 cycle
 JMP label; JGZ/JLZ/JEZ/JNZ chX label - >0 / <0 / =0 / <>0
 Conditional J*Z ops must test a signal from other node(s).
 Two signals on the same channel will sum.`;
+
+let last_saved: string = '';
+let undo_stack: string[] = [];
+let undo_idx: number = -1; // where to write the next modified state
+function undoReset(): void {
+  last_saved = '';
+  undo_stack = [];
+}
+function undoPush(force_save: boolean): void {
+  let puzzle_id = puzzle_ids[game_state.puzzle_idx];
+  let saved = game_state.toJSON();
+  let saved_text = JSON.stringify(saved);
+  if (saved_text !== last_saved) {
+    localStorageSet(`p${puzzle_id}.${cur_level_slot}`, saved_text);
+    last_saved = saved_text;
+    if (undo_idx !== -1) {
+      undo_stack = undo_stack.slice(0, undo_idx);
+      undo_idx = -1;
+    }
+    undo_stack.push(saved_text);
+  }
+}
+
+function canUndo(): boolean {
+  return undo_idx === -1 && undo_stack.length > 1 || undo_idx > 1;
+}
+
+function undoUndo(): void {
+  let puzzle_id = puzzle_ids[game_state.puzzle_idx];
+  undoPush(true);
+  if (undo_idx === -1) {
+    undo_idx = undo_stack.length - 1;
+  } else {
+    undo_idx--;
+  }
+  last_saved = undo_stack[undo_idx-1];
+  game_state.fromJSON(game_state.puzzle_idx, JSON.parse(last_saved));
+  localStorageSet(`p${puzzle_id}.${cur_level_slot}`, last_saved);
+}
+
+function canRedo(): boolean {
+  return undo_idx !== -1;
+}
+
+function undoRedo(): void {
+  let puzzle_id = puzzle_ids[game_state.puzzle_idx];
+  last_saved = undo_stack[undo_idx];
+  game_state.fromJSON(game_state.puzzle_idx, JSON.parse(last_saved));
+  localStorageSet(`p${puzzle_id}.${cur_level_slot}`, last_saved);
+  undo_idx++;
+  if (undo_idx === undo_stack.length) {
+    undo_idx = -1;
+  }
+}
+
 
 let sprites: Record<string, Sprite> = {};
 function init(): void {
@@ -693,6 +780,7 @@ function init(): void {
   loadUISprite('node_panel_info', [16, 16, 16], [32, 16, 16]);
 }
 
+let last_focus: string = '';
 function statePlay(dt: number): void {
   game_state.tick(dt);
 
@@ -725,8 +813,9 @@ function statePlay(dt: number): void {
     color: palette_font[5],
     x: GOAL_X + PANEL_HPAD, y: GOAL_Y + PANEL_VPAD, w: GOAL_W - PANEL_HPAD * 2,
     align: ALIGN.HFIT|ALIGN.HWRAP,
-    text: mode_quick_reference ? HELP :
-      game_state.won() ? `GOAL: ${puzzle.title}` : `GOAL: ${puzzle.title}\n${puzzle.goal}`,
+    text: game_state.won() ? `GOAL: ${puzzle.title}` : mode_quick_reference ?
+      HELP :
+      `GOAL: ${puzzle.title}\n${puzzle.goal}`,
   });
 
   // draw controls
@@ -760,6 +849,7 @@ function statePlay(dt: number): void {
       tooltip: game_state.isPlaying() ? 'Pause' : 'Start',
       disabled: game_state.hasError() || game_state.won(),
     })) {
+      undoPush(true);
       game_state.play();
     }
     x += w + 2;
@@ -774,6 +864,7 @@ function statePlay(dt: number): void {
     })) {
       if (!game_state.isSimulating()) {
         // just start playing and pause
+        undoPush(true);
         game_state.play();
         game_state.play();
       } else {
@@ -792,6 +883,9 @@ function statePlay(dt: number): void {
       tooltip: 'Fast-forward',
       disabled: game_state.hasError() || game_state.won(),
     })) {
+      if (!game_state.isSimulating()) {
+        undoPush(true);
+      }
       game_state.ff();
     }
     x += w + 2;
@@ -807,21 +901,25 @@ function statePlay(dt: number): void {
       x += w + 2;
       x += w + 2;
     } else {
-      button({
+      if (button({
         x, y, w,
         img: sprites.icon_undo,
         shrink: 1,
         tooltip: 'Undo',
-        disabled: true,
-      });
+        disabled: !canUndo(),
+      })) {
+        undoUndo();
+      }
       x += w + 2;
-      button({
+      if (button({
         x, y, w,
         img: sprites.icon_redo,
         shrink: 1,
         tooltip: 'Redo',
-        disabled: true,
-      });
+        disabled: !canRedo(),
+      })) {
+        undoRedo();
+      }
       x += w + 2;
     }
     if (button({
@@ -841,6 +939,7 @@ function statePlay(dt: number): void {
         'Stop, save, and return to puzzle select' :
         'Save and return to puzzle select',
     })) {
+      undoPush(true);
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       engine.setState(stateLevelSelect);
     }
@@ -991,6 +1090,7 @@ function statePlay(dt: number): void {
     y += CHH;
     x += 4;
     if (game_state.isEditing()) {
+      let last_code = node.code;
       let ebr = editBox({
         key: `node${node.uid}`,
         x, y, z: Z.NODES+1,
@@ -1002,7 +1102,10 @@ function statePlay(dt: number): void {
         max_len: CODE_LINE_W,
         initial_focus: true,
       }, node.code);
-      node.setCode(ebr.text);
+      if (ebr.text !== last_code) {
+        node.setCode(ebr.text);
+        // undoPush(false);
+      }
     } else {
       font.draw({
         color: palette_font[5],
@@ -1078,10 +1181,12 @@ function statePlay(dt: number): void {
       }
     }
   }
-  for (let ii = remove_nodes.length - 1; ii >= 0; --ii) {
-    nodes.splice(remove_nodes[ii], 1);
+  if (remove_nodes.length) {
+    for (let ii = remove_nodes.length - 1; ii >= 0; --ii) {
+      nodes.splice(remove_nodes[ii], 1);
+    }
+    undoPush(true);
   }
-
 
   for (let column = 0; column < 3; ++column) {
     let max_y = node_y[column];
@@ -1102,6 +1207,7 @@ function statePlay(dt: number): void {
           let node = new Node(key);
           node.pos[0] = column;
           nodes.push(node);
+          undoPush(true);
         }
         x += button_w + 4;
       }
@@ -1146,6 +1252,12 @@ function statePlay(dt: number): void {
       });
       x += CHANNEL_W + CHANNELS_PAD;
     }
+  }
+
+  let focus_key = spotGetCurrentFocusKey();
+  if (focus_key !== last_focus) {
+    last_focus = focus_key;
+    undoPush(true);
   }
 }
 
@@ -1192,6 +1304,7 @@ NOP`);
     game_state.nodes.push(node3);
   }
 
+  undoReset();
   engine.setState(statePlay);
 }
 
@@ -1231,16 +1344,19 @@ function myScoreToRowC(row: unknown[], score: ScoreData): void {
   row.push(score.cycles);
 }
 
+const MAX_SLOTS = 3;
+
+let choosing_new_game = false;
 function stateLevelSelect(dt: number): void {
   const TITLE_H = CHH * 2;
-  const PAD = 4;
+  // const PAD = 4;
   const MAX_LEVEL = puzzle_ids.length;
   let x = 0;
   let y = 4;
 
   const button_h = BUTTON_H;
-  const button_w = BUTTON_H * 3;
-  const arrow_inset = 120;
+  let button_w = BUTTON_H * 3;
+  const arrow_inset = 100;
   if (buttonText({
     x: x + arrow_inset, y,
     h: button_h, w: button_w,
@@ -1248,6 +1364,7 @@ function stateLevelSelect(dt: number): void {
     disabled: cur_level_idx === 0,
   })) {
     cur_level_idx--;
+    choosing_new_game = false;
     score_systema.forceRefreshScores(cur_level_idx);
     score_systemb.forceRefreshScores(cur_level_idx);
     score_systemc.forceRefreshScores(cur_level_idx);
@@ -1259,12 +1376,13 @@ function stateLevelSelect(dt: number): void {
   }
 
   if (buttonText({
-    x: 1000 - button_w - arrow_inset, y,
+    x: game_width - button_w - arrow_inset, y,
     h: button_h, w: button_w,
     text: 'NEXT',
     disabled: cur_level_idx === MAX_LEVEL - 1,
   })) {
     cur_level_idx++;
+    choosing_new_game = false;
     score_systema.forceRefreshScores(cur_level_idx);
     score_systemb.forceRefreshScores(cur_level_idx);
     score_systemc.forceRefreshScores(cur_level_idx);
@@ -1279,7 +1397,7 @@ function stateLevelSelect(dt: number): void {
 
   font.draw({
     color: palette_font[8],
-    x, y, w: 1000,
+    x, y, w: game_width,
     align: ALIGN.HCENTER|ALIGN.HWRAP,
     size: CHH,
     text: `QPCA-77b Puzzle ${cur_level_idx + 1} / ${MAX_LEVEL}`,
@@ -1287,7 +1405,7 @@ function stateLevelSelect(dt: number): void {
   y += CHH;
   font.draw({
     color: palette_font[10],
-    x, y, w: 1000,
+    x, y, w: game_width,
     align: ALIGN.HCENTER|ALIGN.HWRAP,
     size: TITLE_H,
     text: puzzles[cur_level_idx].title,
@@ -1295,13 +1413,13 @@ function stateLevelSelect(dt: number): void {
   y += TITLE_H;
   y += font.draw({
     color: palette_font[8],
-    x, y, w: 1000,
+    x, y, w: game_width,
     align: ALIGN.HCENTER|ALIGN.HWRAP,
     size: CHH,
     text: puzzles[cur_level_idx].desc || puzzles[cur_level_idx].goal,
   });
 
-  let has_score = false; // score_systema.hasScore(cur_level_idx);
+  // let has_score = false; // score_systema.hasScore(cur_level_idx);
 
   const button_y = camera2d.y1() - button_h - 4;
   const H = button_y;
@@ -1351,38 +1469,109 @@ function stateLevelSelect(dt: number): void {
   });
 
   y = button_y;
-  if (game_state && game_state.puzzle_idx === cur_level_idx) {
-    if (buttonText({
-      x: 500 - button_w - PAD/2,
-      y,
-      w: button_w, h: button_h,
-      text: 'Resume',
-    })) {
-      engine.setState(statePlay);
+  button_w = floor(BUTTON_H * 1.5);
+  x = 4 + BUTTON_H;
+  let puzzle_id = puzzle_ids[cur_level_idx];
+  for (let ii = 0; ii < MAX_SLOTS; ++ii) {
+    let storage_key = `p${puzzle_id}.${ii}`;
+    let saved_data = localStorageGet(storage_key);
+    let xstart = x;
+    if (saved_data) {
+      if (choosing_new_game) {
+        if (buttonText({
+          x, y,
+          w: button_w * 2 + 4, h: button_h,
+          text: `COPY FROM SAVE ${ii+1}`,
+        })) {
+          choosing_new_game = false;
+          game_state = new GameState();
+          game_state.fromJSON(cur_level_idx, JSON.parse(saved_data));
+          undoReset();
+          engine.setState(statePlay);
+        }
+        x += button_w * 2 + 4 * 2;
+      } else {
+        let can_resume = (cur_level_slot === ii && game_state && game_state.puzzle_idx === cur_level_idx);
+        if (buttonText({
+          x, y,
+          w: button_w, h: button_h,
+          text: can_resume ? 'RESUME' : 'LOAD',
+        })) {
+          if (can_resume) {
+            game_state.stop();
+          } else {
+            cur_level_slot = ii;
+            game_state = new GameState();
+            game_state.fromJSON(cur_level_idx, JSON.parse(saved_data));
+            undoReset();
+          }
+          engine.setState(statePlay);
+        }
+        x += button_w + 4;
+        if (buttonText({
+          x, y,
+          w: button_w, h: button_h,
+          text: 'DEL',
+        })) {
+          localStorageSet(storage_key, undefined);
+        }
+        x += button_w + 4;
+      }
+    } else {
+      if (choosing_new_game) {
+        if (cur_level_slot === ii) {
+          if (buttonText({
+            x, y,
+            w: button_w * 2 + 4, h: button_h,
+            text: 'START FRESH',
+          })) {
+            choosing_new_game = false;
+            startPuzzle(puzzle_id);
+          }
+        }
+        x += button_w * 2 + 4 * 2;
+      } else {
+        x += button_w/2 + 2;
+        if (buttonText({
+          x, y,
+          w: button_w, h: button_h,
+          text: 'NEW',
+        })) {
+          cur_level_slot = ii;
+          let has_any_other = false;
+          for (let jj = 0; jj < MAX_SLOTS; ++jj) {
+            if (jj !== ii) {
+              let other_key = `p${puzzle_id}.${jj}`;
+              if (localStorageGet(other_key)) {
+                has_any_other = true;
+              }
+            }
+          }
+          if (has_any_other) {
+            // prompt for "start fresh" or "copy from slot X"
+            choosing_new_game = true;
+          } else {
+            startPuzzle(puzzle_id);
+          }
+        }
+        x += button_w + 4;
+        x += button_w/2 + 2;
+      }
     }
-    if (buttonText({
-      x: 500 + PAD/2,
-      y,
-      w: button_w, h: button_h,
-      text: 'Restart',
-    })) {
-      startPuzzle(puzzle_ids[cur_level_idx]);
-    }
-  } else {
-    if (buttonText({
-      x: 500 - button_w/2,
-      y,
-      w: button_w, h: button_h,
-      text: has_score ? 'Restart' : 'Play',
-    })) {
-      startPuzzle(puzzle_ids[cur_level_idx]);
-    }
+    font.draw({
+      color: palette_font[9],
+      y: y - CHH,
+      x: xstart, w: x - xstart,
+      align: ALIGN.HCENTER,
+      text: `Save ${ii+1}`,
+    });
+    x += 8;
   }
 
   let param = {
-    x: game_width - button_w * 1.5 - 4,
+    x: game_width - button_h * 4 - 4,
     y,
-    w: button_w * 1.5, h: button_h,
+    w: button_h * 4, h: button_h,
     text: 'Reference Manual',
     url: `${getURLBase()}manual.html`,
   };
