@@ -59,6 +59,46 @@ Write their sum to OUTPUT`,
     sets,
   };
 }()), (function () {
+  rand.reseed(3456);
+  let sets: PuzzleIOSet[] = [];
+  let input: number[] = [];
+  let output: number[] = [];
+  function push(a: number, b: number): void {
+    input.push(a, b);
+    output.push(Math.max(a, b));
+  }
+  push(3, 2);
+  push(2, 3);
+  push(7, 3);
+  for (let ii = 0; ii < 9; ++ii) {
+    push(1 + rand.range(MAXINT-2), 1 + rand.range(MAXINT-2));
+  }
+  push(1, MAXINT-1);
+  sets.push({ input, output });
+
+  input = [];
+  output = [];
+  for (let ii = 0; ii < 13; ++ii) {
+    push(1 + rand.range(MAXINT-2), 1 + rand.range(MAXINT-2));
+  }
+  sets.push({ input, output });
+
+  input = [];
+  output = [];
+  for (let ii = 0; ii < 13; ++ii) {
+    push(1 + rand.range(MAXINT-2), 1 + rand.range(MAXINT-2));
+  }
+  sets.push({ input, output });
+
+  return {
+    id: 'max',
+    title: 'Max',
+    desc: 'Find the maximum of two numbers',
+    goal: `Read two numbers from INPUT
+Write the larger of the two to OUTPUT`,
+    sets,
+  };
+}()), (function () {
   rand.reseed(2345);
   let sets: PuzzleIOSet[] = [];
   let input: number[] = [];

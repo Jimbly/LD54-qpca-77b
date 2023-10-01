@@ -531,13 +531,14 @@ class GameState {
     this.radios = {};
     this.radio_activate_time = {};
     this.nodes.forEach((node) => node.resetSim());
+    this.elapsed_time_ff = 4000;
   }
   resetSim(): void {
     this.tick_idx = 0;
     this.set_idx = 0;
-    this.elapsed_time_ff = 0;
     this.fast_forward = false;
     this.resetSimSet();
+    this.elapsed_time_ff = 0;
   }
   isPlaying(): boolean {
     return this.state === 'play';
@@ -563,6 +564,10 @@ class GameState {
   }
   stop(): void {
     this.state = 'edit';
+    if (this.set_idx !== 0) {
+      this.set_idx = 0;
+      this.output = [];
+    }
     let { nodes } = this;
     nodes.forEach((node) => {
       node.resetError();
