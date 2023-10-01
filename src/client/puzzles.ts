@@ -21,6 +21,35 @@ export type Puzzle = {
 };
 
 export const puzzles: Puzzle[] = [(function () {
+  rand.reseed(3746);
+  let sets: PuzzleIOSet[] = [];
+  let input: number[] = [];
+  let output: number[] = [];
+  function fillit(): void {
+    while (input.length < 26) {
+      let v = rand.range(MAXINT - 1);
+      input.push(v);
+      output.push(v+1);
+    }
+    sets.push({ input, output });
+    input = [];
+    output = [];
+  }
+  input.push(3, 7);
+  output.push(4, 8);
+  fillit();
+  fillit();
+  fillit();
+
+  return {
+    id: 'inc',
+    title: 'Increment',
+    desc: 'Output more than the input',
+    goal: `Read X from INPUT
+Write X + 1 to OUTPUT`,
+    sets,
+  };
+}()), (function () {
   rand.reseed(5678);
   let sets: PuzzleIOSet[] = [];
   let input: number[] = [];
@@ -161,6 +190,50 @@ Write their sum to OUTPUT`,
     desc: 'Find the maximum of two numbers',
     goal: `Read two numbers from INPUT
 Write the larger of the two to OUTPUT`,
+    sets,
+  };
+}()), (function () {
+  rand.reseed(9583);
+  let sets: PuzzleIOSet[] = [];
+  let input: number[] = [];
+  let output: number[] = [];
+  function push(a: number, b: number): void {
+    if (output.length + b > 26) {
+      return;
+    }
+    input.push(a, b);
+    for (let ii = 0; ii < b; ++ii) {
+      output.push(a);
+    }
+  }
+  push(7, 3);
+  push(-4, 1);
+  for (let ii = 0; ii < 20; ++ii) {
+    push(MININT + rand.range(MAXINT - MININT + 1), 1 + rand.range(5));
+  }
+  sets.push({ input, output });
+
+  input = [];
+  output = [];
+  push(70, 7);
+  for (let ii = 0; ii < 20; ++ii) {
+    push(MININT + rand.range(MAXINT - MININT + 1), 1 + rand.range(7));
+  }
+  sets.push({ input, output });
+
+  input = [];
+  output = [];
+  for (let ii = 0; ii < 20; ++ii) {
+    push(MININT + rand.range(MAXINT - MININT + 1), 1 + rand.range(9));
+  }
+  sets.push({ input, output });
+
+  return {
+    id: 'repeat',
+    title: 'Repeat',
+    desc: 'Redundant repetitivity',
+    goal: `Read two numbers X and N from INPUT
+Write X to OUTPUT, N times`,
     sets,
   };
 }()), (function () {

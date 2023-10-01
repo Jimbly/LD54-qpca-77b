@@ -1977,8 +1977,8 @@ export function main(): void {
   });
 
 
-  if (engine.DEBUG && true) {
-    autoStartPuzzle(puzzle_ids.indexOf('alt'));
+  if (engine.DEBUG && false) {
+    autoStartPuzzle(puzzle_ids.indexOf('repeat'));
     // game_state.ff();
   } else {
     engine.setState(stateLevelSelect);

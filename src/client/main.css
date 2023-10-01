@@ -1,6 +1,6 @@
 html, body {
-  background-color: black;
-  color: white;
+  background-color: #333333;
+  color: #e1ccad;
   border: 0;
   margin: 0;
   padding: 0;
@@ -37,7 +37,7 @@ a:visited {
 }
 
 #loading {
-  background: black;
+  background: #333333;
 }
 
 #content {

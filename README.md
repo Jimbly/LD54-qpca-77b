@@ -15,9 +15,7 @@ Plan: TIS-100-like
 
 TODO:
 * consider: a couple ops to make logic easier, but less efficient?
-* more puzzles - more easier ones - some single-node?
-  * output 0 if positive, 1 if negative - simpler than filter?
-  * repeat input N times
+* lock node types until puzzle is beaten, have space for detailed tutorial text
 * not really having limited space problems - add more margin to nodes to fit fewer?  make bigger problems?
 * title screen, startup sequence
 * tutorialize a bit, have hints for first levels
@@ -25,6 +23,7 @@ TODO:
 POLISH:
 * volume/sound on/off toggle
 * different BG color, a bit more color usage
+* show your best and your previous best on run summary
 * !breakpoint
 
 
