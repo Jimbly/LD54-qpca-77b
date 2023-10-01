@@ -17,6 +17,7 @@ TODO:
 * sound FX
 * consider: a couple ops to make logic easier, but less efficient?
 * more puzzles - more easier ones - some single-node?
+* not really having limited space problems - add more margin to nodes to fit fewer?  make bigger problems?
 
 POLISH:
 * title screen, startup sequence

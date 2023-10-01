@@ -615,10 +615,21 @@ class GameState {
         // collision, but ok
         return null;
       }
+      playUISound('outbad');
       return 'Output collision';
     }
     if (this.output.length >= MAX_OUTPUT) {
+      playUISound('outbad');
       return 'Output overflow';
+    }
+    let puzzle = puzzles[this.puzzle_idx];
+    let pout = puzzle.sets[this.set_idx].output;
+    if (this.output.length >= pout.length) {
+      playUISound('outbad');
+    } else if (v !== pout[this.output.length]) {
+      playUISound('outbad');
+    } else {
+      playUISound('outgood');
     }
     this.output.push(v);
     this.did_output = v;
@@ -666,11 +677,17 @@ class GameState {
     if (success) {
       if (this.set_idx === puzzle.sets.length - 1) {
         this.state = 'win';
+        setTimeout(function () {
+          playUISound('victory');
+        }, 150);
         this.submitScore();
       } else {
         this.set_idx++;
         this.resetSimSet();
       }
+    }
+    if (this.hasError()) {
+      playUISound('error');
     }
   }
   won(): boolean {
@@ -1151,12 +1168,9 @@ function statePlay(dt: number): void {
     let line_x = OUTPUT_X + OUTPUT_W/2;
     drawLine(line_x, y, line_x, y1-2, Z.UI + 1, 1, 1, palette[9]);
     let y0 = y;
+    let poutput = puzzle.sets[set_idx].output;
     for (let ii = 0; ii < puzzle.sets[set_idx].output.length; ++ii) {
-      let v = puzzle.sets[set_idx].output[ii];
-      let out_v = game_state.output[ii];
-      if (out_v !== undefined && out_v !== v) {
-        drawRect(OUTPUT_X+1, y, OUTPUT_X + OUTPUT_W - 1, y + CHH - 1, Z.UI + 1, palette[7]);
-      }
+      let v = poutput[ii];
       font.draw({
         color: palette_font[5],
         x: OUTPUT_X, y, w: OUTPUT_W/2,
@@ -1169,8 +1183,9 @@ function statePlay(dt: number): void {
     y = y0;
     for (let ii = 0; ii < game_state.output.length; ++ii) {
       let v = game_state.output[ii];
-      if (ii >= puzzle.sets[set_idx].output.length) {
-        drawRect(OUTPUT_X+1, y - 2, OUTPUT_X + OUTPUT_W - 1, y + CHH - 3, Z.UI + 1, palette[7]);
+      let puzv = poutput[ii];
+      if (ii >= poutput.length || v !== puzv) {
+        drawRect(OUTPUT_X+1, y, OUTPUT_X + OUTPUT_W - 1, y + CHH - 1, Z.UI + 1, palette[7]);
       }
       font.draw({
         color: palette_font[5],
@@ -1818,6 +1833,12 @@ export function main(): void {
     null);
   v4copy(engine.border_clear_color, palette[4]);
   v4copy(engine.border_color, palette[4]);
+  ui.uiBindSounds({
+    error: 'error',
+    victory: 'victory',
+    outgood: { file: 'outgood', volume: 0.3 },
+    outbad: { file: 'outbad', volume: 0.5 },
+  });
 
   init();
 
@@ -1927,7 +1948,7 @@ export function main(): void {
 
 
   if (engine.DEBUG && true) {
-    autoStartPuzzle(puzzle_ids.indexOf('rmdup'));
+    autoStartPuzzle(puzzle_ids.indexOf('alt'));
     // game_state.ff();
   } else {
     engine.setState(stateLevelSelect);
