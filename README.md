@@ -46,7 +46,7 @@ do funny pixel aspect, chars are 9x20
 
 
 ```
-Examples
+Examples w/add/subtract
 
 Multiply - 17LOC, 2N, 3CH
 Node 1 (7x3)
@@ -72,34 +72,6 @@ MOV ch2 0
 MOV OUTPUT acc
 
 
-Multiply alternative (no add/subtract) - 19LOC, 3N, 4CH
-Node 1 same? (7x3)
-MOV ch3 INPUT
-MOV ACC INPUT
-loop: MOV ch1 ACC
-wait: JNZ ch2 wait
-JLZ ch2 end
-DEC ; SUB 1
-JMP loop
-end:
-
-Node 2 (11x4)
-MOV acc 0
-SLP 3
-JEZ ch1 end
-MOV ch3 acc
-MOV ch2 1
-MOV acc ch4
-MOV ch2 0
-JMP loop
-end: MOV ch2 -1
-MOV ch2 0
-MOV output ACC
-
-Node 3 (1x2)
-MOV ch4 ch3
-
-
 Larger of two numbers
 Node 1 (6x4)
 MOV ch2 input
@@ -118,51 +90,6 @@ JLZ ch4 a
 MOV output ch2
 JMP end
 a: MOV output ch1
-JMP end
-end:
-
-Larger of two numbers alternative (no add/subtract)
-
-Node 1 (3x2)
-MOV acc input
-MOV ch1 acc
-MOV ch2 acc
-
-Node 2 (4x2)
-MOV acc input
-MOV ch3 acc
-NEG
-MOV ch1 acc
-
-Node 3 (6x3)
-SLP 4
-JLZ ch1 a
-MOV output ch3
-JMP end
-a: MOV output ch2
-JMP end
-end:
-
-Larger of two numbers alternative (no add/subtract, single input)
-
-Node 1 (3x2)
-MOV ch3 input
-MOV acc input
-MOV ch1 acc
-MOV ch2 acc
-
-Node 2 (4x2)
-SLP 1
-MOV acc ch3
-NEG
-MOV ch1 acc
-
-Node 3 (6x3)
-SLP 4
-JLZ ch1 a
-MOV output ch3
-JMP end
-a: MOV output ch2
 JMP end
 end:
 

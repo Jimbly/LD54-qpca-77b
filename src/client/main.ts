@@ -512,8 +512,14 @@ class GameState {
   set_idx = 0;
   radios: Partial<Record<number, number>> = {};
   radio_activate_time: Partial<Record<number, number>> = {};
+  last_stats: ScoreData = { loc: 0, nodes: 0, cycles: 0 };
   toJSON(): DataObject {
-    return { nodes: this.nodes.map((a) => a.toJSON()) };
+    let stats = this.score();
+    if (stats.loc !== this.last_stats.loc || stats.nodes !== this.last_stats.nodes) {
+      this.last_stats = stats;
+      this.last_stats.cycles = 0;
+    }
+    return { nodes: this.nodes.map((a) => a.toJSON()), stats: this.last_stats };
   }
   fromJSON(puzzle_idx: number, obj: DataObject): void {
     this.puzzle_idx = puzzle_idx;
@@ -523,6 +529,7 @@ class GameState {
       node.fromJSON(nobj);
       return node;
     });
+    this.last_stats = obj.stats as ScoreData || this.last_stats;
     this.resetSim();
   }
   resetSimSet(): void {
@@ -682,6 +689,7 @@ class GameState {
     score_systema.setScore(this.puzzle_idx, score_data);
     score_systemb.setScore(this.puzzle_idx, score_data);
     score_systemc.setScore(this.puzzle_idx, score_data);
+    this.last_stats = score_data;
   }
 
   ff(): void {
@@ -1575,11 +1583,23 @@ function stateLevelSelect(dt: number): void {
     }
     font.draw({
       color: palette_font[9],
-      y: y - CHH,
+      y: y - CHH*2,
       x: xstart, w: x - xstart,
       align: ALIGN.HCENTER,
       text: `Save ${ii+1}`,
     });
+    if (saved_data) {
+      let stats = JSON.parse(saved_data).stats;
+      if (stats) {
+        font.draw({
+          color: palette_font[9],
+          y: y - CHH,
+          x: xstart, w: x - xstart,
+          align: ALIGN.HCENTER,
+          text: `${stats.loc}L/${stats.nodes}N/${stats.cycles || '?'}C`,
+        });
+      }
+    }
     x += 8;
   }
 
