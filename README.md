@@ -14,13 +14,16 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-100-like
 
 TODO:
-* sound FX
+* node cost metric instead of count
 * consider: a couple ops to make logic easier, but less efficient?
 * more puzzles - more easier ones - some single-node?
+  * output 0 if positive, 1 if negative - simpler than filter?
+  * repeat input N times
 * not really having limited space problems - add more margin to nodes to fit fewer?  make bigger problems?
+* title screen, startup sequence
+* tutorialize a bit, have hints for first levels
 
 POLISH:
-* title screen, startup sequence
 * different BG color, a bit more color usage
 * !breakpoint
 

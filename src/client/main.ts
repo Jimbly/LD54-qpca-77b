@@ -748,7 +748,7 @@ let mode_quick_reference = false;
 let cur_level_slot = 0;
 
 const HELP = `QUICK REFERENCE
-MOV [chX|OUTPUT|ACC] [chX|INPUT|ACC|number]
+MOV [OUTPUT|ACC|chX] [INPUT|ACC|chX|number]
 INC/DEC/NEG - modifies ACC           NOP - sleeps 1 cycle
 JMP label; JGZ/JLZ/JEZ/JNZ chX label - >0 / <0 / =0 / <>0
 Conditional J*Z ops must test a signal from other node(s).
@@ -831,6 +831,15 @@ function init(): void {
 
 let cur_level_idx = 0;
 
+function setStatePlay(): void {
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  engine.setState(statePlay);
+  playUISound('insert');
+  setTimeout(function () {
+    playUISound('floppy');
+  }, 200);
+}
+
 function autoStartPuzzle(new_puzzle_idx: number): void {
   let new_puzzle_id = puzzle_ids[new_puzzle_idx];
   cur_level_slot = 0;
@@ -841,8 +850,7 @@ function autoStartPuzzle(new_puzzle_idx: number): void {
     game_state = new GameState();
     game_state.fromJSON(new_puzzle_idx, JSON.parse(saved_data));
     undoReset();
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    engine.setState(statePlay);
+    setStatePlay();
   } else {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     startPuzzle(new_puzzle_id);
@@ -934,6 +942,7 @@ function statePlay(dt: number): void {
       x, y, z,
       w: button_w,
       text: 'View Scores',
+      sound_button: 'eject',
     })) {
       game_state.stop();
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -946,6 +955,7 @@ function statePlay(dt: number): void {
       w: button_w,
       text: 'Next Exercise',
       disabled: no_next_exercise,
+      sound_button: null,
     })) {
       autoStartPuzzle(game_state.puzzle_idx + 1);
     }
@@ -980,8 +990,7 @@ function statePlay(dt: number): void {
     color: palette_font[5],
     x: GOAL_X + PANEL_HPAD, y: GOAL_Y + PANEL_VPAD, w: GOAL_W - PANEL_HPAD * 2,
     align: ALIGN.HFIT|ALIGN.HWRAP,
-    text: game_state.won() ? `GOAL: ${puzzle.title}` : mode_quick_reference ?
-      HELP :
+    text: mode_quick_reference && !game_state.won() ? HELP :
       `GOAL: ${puzzle.title}\n${puzzle.goal}`,
   });
 
@@ -1113,6 +1122,7 @@ function statePlay(dt: number): void {
         'Stop, save, and return to exercise select' :
         'Save and return to exercise select',
       hotkey: KEYS.ESC,
+      sound_button: 'eject',
     })) {
       undoPush(true);
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -1496,7 +1506,7 @@ NOP`);
   }
 
   undoReset();
-  engine.setState(statePlay);
+  setStatePlay();
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1671,12 +1681,13 @@ function stateLevelSelect(dt: number): void {
           x, y,
           w: button_w * 2 + 4, h: button_h,
           text: `COPY FROM SAVE ${ii+1}`,
+          sound_button: null,
         })) {
           choosing_new_game = false;
           game_state = new GameState();
           game_state.fromJSON(cur_level_idx, JSON.parse(saved_data));
           undoReset();
-          engine.setState(statePlay);
+          setStatePlay();
         }
         x += button_w * 2 + 4 * 2;
       } else {
@@ -1685,6 +1696,7 @@ function stateLevelSelect(dt: number): void {
           x, y,
           w: button_w, h: button_h,
           text: can_resume ? 'RESUME' : 'LOAD',
+          sound_button: null,
         })) {
           if (can_resume) {
             game_state.stop();
@@ -1694,7 +1706,7 @@ function stateLevelSelect(dt: number): void {
             game_state.fromJSON(cur_level_idx, JSON.parse(saved_data));
             undoReset();
           }
-          engine.setState(statePlay);
+          setStatePlay();
         }
         x += button_w + 4;
         if (buttonText({
@@ -1713,6 +1725,7 @@ function stateLevelSelect(dt: number): void {
             x, y,
             w: button_w * 2 + 4, h: button_h,
             text: 'START FRESH',
+            sound_button: null,
           })) {
             choosing_new_game = false;
             startPuzzle(puzzle_id);
@@ -1721,21 +1734,22 @@ function stateLevelSelect(dt: number): void {
         x += button_w * 2 + 4 * 2;
       } else {
         x += button_w/2 + 2;
+        let has_any_other = false;
+        for (let jj = 0; jj < MAX_SLOTS; ++jj) {
+          if (jj !== ii) {
+            let other_key = `p${puzzle_id}.${jj}`;
+            if (localStorageGet(other_key)) {
+              has_any_other = true;
+            }
+          }
+        }
         if (buttonText({
           x, y,
           w: button_w, h: button_h,
           text: 'NEW',
+          sound_button: has_any_other ? undefined : null,
         })) {
           cur_level_slot = ii;
-          let has_any_other = false;
-          for (let jj = 0; jj < MAX_SLOTS; ++jj) {
-            if (jj !== ii) {
-              let other_key = `p${puzzle_id}.${jj}`;
-              if (localStorageGet(other_key)) {
-                has_any_other = true;
-              }
-            }
-          }
           if (has_any_other) {
             // prompt for "start fresh" or "copy from slot X"
             choosing_new_game = true;
@@ -1834,10 +1848,14 @@ export function main(): void {
   v4copy(engine.border_clear_color, palette[4]);
   v4copy(engine.border_color, palette[4]);
   ui.uiBindSounds({
+    button_click: ['click1', 'click2', 'click3', 'click4', 'click5', 'click6'],
     error: 'error',
     victory: 'victory',
     outgood: { file: 'outgood', volume: 0.3 },
     outbad: { file: 'outbad', volume: 0.5 },
+    insert: 'insert',
+    eject: 'eject',
+    floppy: 'floppy',
   });
 
   init();
