@@ -202,7 +202,7 @@ function parseOp(toks: string[], source_line: number): Op | string {
     return `Unknown instruction "${instr}"`;
   }
   if (toks.length !== def.params.length + 1) {
-    return `"${instr}" requires ${def.params} parameter(s)`;
+    return `"${instr.toUpperCase()}" requires ${def.params.length} ${plural(def.params.length, 'parameter')}`;
   }
   let p: (string | number | null)[] = [null, null];
   for (let ii = 0; ii < def.params.length; ++ii) {
@@ -315,7 +315,7 @@ class Node {
       if (!line) {
         continue;
       }
-      let toks = line.split(/\s+/g);
+      let toks = line.split(/[\s,]+/g);
       let op = parseOp(toks, ii);
       if (typeof op === 'string') {
         if (!this.error_str) {
@@ -1928,7 +1928,7 @@ export function main(): void {
     game_state.fromJSON(cur_level_idx, JSON.parse(localStorageGet('pdebug.0') as string));
     undoReset();
     engine.setState(statePlay);
-    game_state.ff();
+    // game_state.ff();
     // startPuzzle('debug');
   } else {
     engine.setState(stateLevelSelect);

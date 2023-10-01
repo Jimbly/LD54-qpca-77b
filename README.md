@@ -14,7 +14,6 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-100-like
 
 TODO:
-* strip/ignore commas
 * sound FX
 * consider: a couple ops to make logic easier, but less efficient?
 * more puzzles - more easier ones
