@@ -1475,7 +1475,8 @@ function statePlay(dt: number): void {
         align: ALIGN.HFIT|ALIGN.HWRAP,
         text: node.code,
       });
-      drawRect(x-1, y + step_idx * CHH, x + CODE_LINE_W*CHW+2, y + (step_idx + 1) * CHH - 1, Z.NODES+0.25, palette[0]);
+      let draw_idx = node.op_lines[step_idx].source_line;
+      drawRect(x-1, y + draw_idx * CHH, x + CODE_LINE_W*CHW+2, y + (draw_idx + 1) * CHH - 1, Z.NODES+0.25, palette[0]);
     }
     if (error_idx !== -1) {
       drawRect(x-1, y + error_idx * CHH - 2,
@@ -2304,7 +2305,7 @@ export function main(): void {
 
 
   stateTitleInit();
-  if (engine.DEBUG && false) {
+  if (engine.DEBUG && true) {
     autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
     // engine.setState(stateLevelSelect);
