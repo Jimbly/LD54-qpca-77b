@@ -1,3 +1,4 @@
+/* eslint max-len:off */
 export const MININT = -7*70;
 export const MAXINT = 7*70;
 
@@ -18,6 +19,8 @@ export type Puzzle = {
   goal: string;
   id: string;
   sets: PuzzleIOSet[];
+  fixed_nodes?: string[];
+  tutorial_text?: string;
 };
 
 export const puzzles: Puzzle[] = [(function () {
@@ -48,6 +51,21 @@ export const puzzles: Puzzle[] = [(function () {
     goal: `Read X from INPUT
 Write X + 1 to OUTPUT`,
     sets,
+    fixed_nodes: ['9x3'],
+    tutorial_text: `Congratulations on qualifying for this exclusive QPCA-77B training course!
+
+During the following exercises, you'll learn the skills you need to earn your QPCA-77B Professional Certification, Rev IV.
+
+This tutorial text will be available until you successfully complete this puzzle.  The Reference Manual link at the bottom contains all relevant information and will be available at any time.
+
+To get started, we've slotted an AstroWave 0903 node on the left for you, and you can solve this puzzle by adding code to that node.  Relevant commands for this puzzle are:
+  MOV TARGET SOURCE
+    TARGET/SOURCE is one of
+      INPUT - reads from the input data
+      OUTPUT - writes to the output data
+      ACC - accumulator register
+  INC - increment the contents of the ACC register
+`,
   };
 }()), (function () {
   rand.reseed(5678);
@@ -78,6 +96,7 @@ Write X + 1 to OUTPUT`,
     goal: `Read numbers from INPUT
 Write every other number to OUTPUT, starting with the second one`,
     sets,
+    fixed_nodes: ['4x1'],
   };
 }()), (function () {
   rand.reseed(6789);
@@ -112,6 +131,7 @@ Write every other number to OUTPUT, starting with the second one`,
     goal: `Read numbers from INPUT
 Write any positive values to OUTPUT`,
     sets,
+    fixed_nodes: ['9x3', '9x3'],
   };
 }()), (function () {
   rand.reseed(1234);
@@ -295,7 +315,7 @@ Write their product to OUTPUT`,
   push(3);
   function fillit(): void {
     while (input.length < 26) {
-      if (rand.range(2)) {
+      if (rand.range(2) && lastv !== -1) {
         push(lastv);
       } else {
         push(1 + rand.range(MAXINT - 1));

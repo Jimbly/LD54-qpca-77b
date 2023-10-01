@@ -4,6 +4,10 @@ const local_storage = require('glov/client/local_storage.js');
 local_storage.setStoragePrefix('LD54'); // Before requiring anything else that might load from this
 
 import assert from 'assert';
+import {
+  AnimationSequencer,
+  animationSequencerCreate,
+} from 'glov/client/animation';
 import * as camera2d from 'glov/client/camera2d';
 import { editBox } from 'glov/client/edit_box';
 import * as engine from 'glov/client/engine';
@@ -14,9 +18,12 @@ import {
   fontStyleColored,
   intColorFromVec4Color,
 } from 'glov/client/font';
-import { KEYS } from 'glov/client/input';
+import {
+  KEYS,
+  eatAllInput,
+} from 'glov/client/input';
 import { link } from 'glov/client/link';
-import { localStorageGet, localStorageSet } from 'glov/client/local_storage';
+import { localStorageGet, localStorageGetJSON, localStorageSet, localStorageSetJSON } from 'glov/client/local_storage';
 import * as net from 'glov/client/net';
 import {
   ScoreSystem,
@@ -156,6 +163,31 @@ declare module 'glov/client/ui' {
     node_panel: Sprite;
     node_panel_info: Sprite;
   }
+}
+
+let best_scores: TSMap<ScoreData | null> = {};
+function bestScoreForLevel(puzzle_id: string): ScoreData | null {
+  let record = best_scores[puzzle_id];
+  if (record === undefined) {
+    let key = `bs${puzzle_id}`;
+    record = best_scores[puzzle_id] = localStorageGetJSON(key) || null;
+  }
+  return record;
+}
+function bestScoreUpdate(puzzle_id: string, score: ScoreData): void {
+  let record = best_scores[puzzle_id];
+  let key = `bs${puzzle_id}`;
+  if (!record) {
+    record = best_scores[puzzle_id] = localStorageGetJSON(key);
+  }
+  if (!record) {
+    record = best_scores[puzzle_id] = score;
+  } else {
+    record.nodes = min(record.nodes, score.nodes);
+    record.cycles = min(record.cycles, score.cycles);
+    record.loc = min(record.loc, score.loc);
+  }
+  localStorageSetJSON(key, record);
 }
 
 class NodeType {
@@ -718,6 +750,7 @@ class GameState {
     score_systemb.setScore(this.puzzle_idx, score_data);
     score_systemc.setScore(this.puzzle_idx, score_data);
     this.last_stats = score_data;
+    bestScoreUpdate(puzzle_ids[this.puzzle_idx], score_data);
   }
 
   ff(): void {
@@ -753,6 +786,15 @@ class GameState {
 let game_state: GameState;
 let mode_quick_reference = false;
 let cur_level_slot = 0;
+
+function tutorialMode(): boolean {
+  let puzzle = puzzles[game_state.puzzle_idx];
+  if (!puzzle.fixed_nodes) {
+    return false;
+  }
+  let best_score = bestScoreForLevel(puzzle_ids[game_state.puzzle_idx]);
+  return !best_score;
+}
 
 const HELP = `QUICK REFERENCE
 MOV [OUTPUT|ACC|chX] [INPUT|ACC|chX|number]
@@ -845,6 +887,14 @@ function setStatePlay(): void {
   setTimeout(function () {
     playUISound('floppy');
   }, 200);
+  if (tutorialMode()) {
+    let puzzle = puzzles[game_state.puzzle_idx];
+    while (game_state.nodes.length < puzzle.fixed_nodes!.length) {
+      let node = new Node(puzzle.fixed_nodes![game_state.nodes.length]);
+      node.pos[0] = 0;
+      game_state.nodes.push(node);
+    }
+  }
 }
 
 function autoStartPuzzle(new_puzzle_idx: number): void {
@@ -871,6 +921,8 @@ function statePlay(dt: number): void {
   let { nodes, puzzle_idx, input_idx, radios, radio_activate_time, set_idx } = game_state;
   let puzzle = puzzles[puzzle_idx];
 
+  let tut = tutorialMode();
+
   if (game_state.won()) {
     // do overlay
     let score = game_state.score();
@@ -892,7 +944,7 @@ function statePlay(dt: number): void {
       color: palette_font[10],
       x, y, z, w,
       align: ALIGN.HCENTERFIT,
-      text: 'SUCCESS!',
+      text: `GOAL COMPLETE: ${puzzle.title}`,
     });
 
     y += CHH + 8;
@@ -1228,7 +1280,9 @@ function statePlay(dt: number): void {
     eat_clicks: false,
   });
   drawLine(NODE_X[1] - 3, NODES_Y, NODE_X[1] - 3, NODES_Y + NODES_H - 1, Z.UI + 1, 1, 1, palette[8]);
-  drawLine(NODE_X[2] - 3, NODES_Y, NODE_X[2] - 3, NODES_Y + NODES_H - 1, Z.UI + 1, 1, 1, palette[8]);
+  if (!tut) {
+    drawLine(NODE_X[2] - 3, NODES_Y, NODE_X[2] - 3, NODES_Y + NODES_H - 1, Z.UI + 1, 1, 1, palette[8]);
+  }
 
   let node_y = [NODE_Y, NODE_Y, NODE_Y];
 
@@ -1242,7 +1296,7 @@ function statePlay(dt: number): void {
     let y = node_y[node.pos[0]];
     let y1 = y + node_type.h;
     node_y[node.pos[0]] = y1 + 2;
-    if (game_state.isEditing()) {
+    if (game_state.isEditing() && !tut) {
       if (button({
         x: x + NODE_W - CHH - 5,
         y, z: Z.NODES + 1,
@@ -1381,12 +1435,24 @@ function statePlay(dt: number): void {
     undoPush(true);
   }
 
+  // draw tutorial
+  if (tut && puzzle.tutorial_text) {
+    font.draw({
+      color: palette_font[5],
+      x: NODE_X[1],
+      y: NODES_Y + 4,
+      w: NODE_W * 2,
+      align: ALIGN.HWRAP,
+      text: puzzle.tutorial_text,
+    });
+  }
+
   for (let column = 0; column < 3; ++column) {
     let max_y = node_y[column];
     let x = NODE_X[column];
     let x1 = x + NODE_W - 1;
     let avail_h = NODES_Y + NODES_H - max_y;
-    if (avail_h >= node_types['4x1'].h) {
+    if (avail_h >= node_types['4x1'].h && !tut) {
       let button_w = floor((x1 - x - 4 * (NUM_NODE_TYPES-1)) / NUM_NODE_TYPES);
       for (let key in node_types) {
         let node_type = node_types[key];
@@ -1609,7 +1675,7 @@ function stateLevelSelect(dt: number): void {
     x, y, w: game_width,
     align: ALIGN.HCENTER|ALIGN.HWRAP,
     size: CHH,
-    text: `QPCA-77b Training Exercise ${cur_level_idx + 1} / ${MAX_LEVEL}`,
+    text: `QPCA-77B Training Exercise ${cur_level_idx + 1} / ${MAX_LEVEL}`,
   });
   y += CHH;
   font.draw({
@@ -1808,6 +1874,118 @@ function stateLevelSelect(dt: number): void {
   buttonText(param);
 }
 
+let title_anim: AnimationSequencer | null = null;
+let title_alpha = {
+  title: 0,
+  desc: 0,
+  sub: 0,
+  button: 0,
+};
+function stateTitleInit(): void {
+  title_anim = animationSequencerCreate();
+  let t = 0;
+  t = title_anim.add(t, 300, (progress) => {
+    title_alpha.title = progress;
+  });
+  t = title_anim.add(t + 200, 1000, (progress) => {
+    title_alpha.desc = progress;
+  });
+  t = title_anim.add(t + 300, 300, (progress) => {
+    title_alpha.sub = progress;
+  });
+  title_anim.add(t + 500, 300, (progress) => {
+    title_alpha.button = progress;
+  });
+}
+const style_title = fontStyleColored(null, palette_font[5]);
+function stateTitle(dt: number): void {
+  let W = game_width;
+  let H = game_height;
+
+  if (title_anim) {
+    if (!title_anim.update(dt)) {
+      title_anim = null;
+    } else {
+      eatAllInput();
+    }
+  }
+
+  let y = 120;
+
+  font.draw({
+    style: style_title,
+    alpha: title_alpha.title,
+    // x = 8 because for some reason not centering right?!
+    x: 7, y, w: W, align: ALIGN.HCENTER,
+    size: CHH * 2,
+    text: 'QuantumPulse Control Assemblage 77B',
+  });
+  y += 36;
+  font.draw({
+    color: palette_font[5],
+    alpha: title_alpha.desc,
+    x: W/6,
+    w: W - W/6*2,
+    y, align: ALIGN.HCENTER | ALIGN.HWRAP,
+    text: 'QPCA-77B Visualization Interface',
+  });
+  y += CHH + 30;
+  font.draw({
+    color: palette_font[9],
+    alpha: title_alpha.sub,
+    x: 0, y, w: W, align: ALIGN.HCENTER,
+    text: 'By Jimb Esser in 48 hours for Ludum Dare 54',
+  });
+
+
+  const PROMPT_PAD = 8;
+  if (title_alpha.button) {
+    let button_w = BUTTON_H * 6;
+    let button_x0 = (W - button_w * 2 - PROMPT_PAD) / 2;
+    let button_h = BUTTON_H;
+    let color = [1,1,1, title_alpha.button] as const;
+    let y1 = H - button_h - button_h - 12 - 90;
+    let y2 = y1 + BUTTON_H + PROMPT_PAD;
+    let button_param = {
+      color,
+      w: button_w,
+      h: button_h,
+    };
+    // let has_score = score_system.getScore(level_idx);
+    // let need_new_seed = false; // has_score;
+    if (button({
+      ...button_param,
+      x: floor((game_width - button_w) / 2), y: y1,
+      text: 'Begin Training Exercise #1',
+    })) {
+      autoStartPuzzle(0);
+    }
+
+    if (button({
+      ...button_param,
+      x: button_x0,
+      y: y2,
+      text: 'Exercise Select and Rankings',
+    })) {
+      engine.setState(stateLevelSelect);
+    }
+
+    let param = {
+      ...button_param,
+      x: button_x0 + button_w + PROMPT_PAD,
+      y: y2,
+      text: 'Reference Manual',
+      url: `${getURLBase()}manual.html`,
+    };
+    if (link(param)) {
+      playUISound('button_click');
+    }
+    buttonText(param);
+
+  }
+}
+
+
 export function main(): void {
   if (engine.DEBUG) {
     // Enable auto-reload, etc
@@ -1977,10 +2155,11 @@ export function main(): void {
   });
 
 
-  if (engine.DEBUG && false) {
-    autoStartPuzzle(puzzle_ids.indexOf('repeat'));
+  if (engine.DEBUG && true) {
+    autoStartPuzzle(puzzle_ids.indexOf('inc'));
     // game_state.ff();
   } else {
-    engine.setState(stateLevelSelect);
+    stateTitleInit();
+    engine.setState(stateTitle);
   }
 }

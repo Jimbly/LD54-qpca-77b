@@ -14,17 +14,19 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-100-like
 
 TODO:
-* consider: a couple ops to make logic easier, but less efficient?
-* lock node types until puzzle is beaten, have space for detailed tutorial text
-* not really having limited space problems - add more margin to nodes to fit fewer?  make bigger problems?
-* title screen, startup sequence
+* lock node types until puzzle is beaten in slot 1, have space for detailed tutorial text
 * tutorialize a bit, have hints for first levels
+* not really having limited space problems - add more margin to nodes to fit fewer?  make bigger problems?
 
 POLISH:
+* submit high scoring solutions to a log somewhere at least
+* vertical wipe transition everywhere
 * volume/sound on/off toggle
 * different BG color, a bit more color usage
 * show your best and your previous best on run summary
+* paper background for manual, PDF version
 * !breakpoint
+* startup sequence (can't do sound, though?)
 
 
 Nodes: 22ch wide + 4ch output + 1ch margin + 3ch borders = 30ch
