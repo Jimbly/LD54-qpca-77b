@@ -54,14 +54,14 @@ import {
 } from 'glov/common/vmath';
 
 import {
+  MAXINT,
+  MININT,
   puzzle_ids,
   puzzles,
 } from './puzzles';
 
 const { floor, min } = Math;
 
-const MININT = -999;
-const MAXINT = 999;
 const TICK_TIME = 1000;
 const TICK_TIME_FF_START = 100;
 const TICK_TIME_FF_MAX = 0.1;
@@ -509,6 +509,7 @@ class GameState {
   tick_idx = 0;
   elapsed_time_ff = 0;
   fast_forward = false;
+  set_idx = 0;
   radios: Partial<Record<number, number>> = {};
   radio_activate_time: Partial<Record<number, number>> = {};
   toJSON(): DataObject {
@@ -524,15 +525,19 @@ class GameState {
     });
     this.resetSim();
   }
-  resetSim(): void {
+  resetSimSet(): void {
     this.output = [];
     this.input_idx = 0;
-    this.tick_idx = 0;
-    this.elapsed_time_ff = 0;
     this.radios = {};
     this.radio_activate_time = {};
-    this.fast_forward = false;
     this.nodes.forEach((node) => node.resetSim());
+  }
+  resetSim(): void {
+    this.tick_idx = 0;
+    this.set_idx = 0;
+    this.elapsed_time_ff = 0;
+    this.fast_forward = false;
+    this.resetSimSet();
   }
   isPlaying(): boolean {
     return this.state === 'play';
@@ -582,10 +587,10 @@ class GameState {
     if (idx === -1) {
       idx = this.input_read_idx = this.input_idx++;
     }
-    if (idx >= puzzle.input.length) {
+    if (idx >= puzzle.sets[this.set_idx].input.length) {
       return MININT;
     } else {
-      return puzzle.input[idx];
+      return puzzle.sets[this.set_idx].input[idx];
     }
   }
   did_output!: null | number;
@@ -636,15 +641,20 @@ class GameState {
 
     // check victory condition
     let puzzle = puzzles[puzzle_idx];
-    let success = output.length === puzzle.output.length;
+    let success = output.length === puzzle.sets[this.set_idx].output.length;
     for (let ii = 0; success && ii < output.length; ++ii) {
-      if (output[ii] !== puzzle.output[ii]) {
+      if (output[ii] !== puzzle.sets[this.set_idx].output[ii]) {
         success = false;
       }
     }
     if (success) {
-      this.state = 'win';
-      this.submitScore();
+      if (this.set_idx === puzzle.sets.length - 1) {
+        this.state = 'win';
+        this.submitScore();
+      } else {
+        this.set_idx++;
+        this.resetSimSet();
+      }
     }
   }
   won(): boolean {
@@ -784,7 +794,7 @@ let last_focus: string = '';
 function statePlay(dt: number): void {
   game_state.tick(dt);
 
-  let { nodes, puzzle_idx, input_idx, radios, radio_activate_time } = game_state;
+  let { nodes, puzzle_idx, input_idx, radios, radio_activate_time, set_idx } = game_state;
   let puzzle = puzzles[puzzle_idx];
 
   // draw goal
@@ -960,8 +970,8 @@ function statePlay(dt: number): void {
       text: 'INPUT',
     });
     y += CHH + 6;
-    for (let ii = 0; ii < puzzle.input.length; ++ii) {
-      let v = puzzle.input[ii];
+    for (let ii = 0; ii < puzzle.sets[set_idx].input.length; ++ii) {
+      let v = puzzle.sets[set_idx].input[ii];
       // if (ii === input_idx) {
       //   drawRect(INPUT_X+1, y, INPUT_X + INPUT_W - 1, y + CHH - 1, Z.UI + 1, palette[3]);
       // }
@@ -993,8 +1003,8 @@ function statePlay(dt: number): void {
     let line_x = OUTPUT_X + OUTPUT_W/2;
     drawLine(line_x, y, line_x, y1-2, Z.UI + 1, 1, 1, palette[9]);
     let y0 = y;
-    for (let ii = 0; ii < puzzle.output.length; ++ii) {
-      let v = puzzle.output[ii];
+    for (let ii = 0; ii < puzzle.sets[set_idx].output.length; ++ii) {
+      let v = puzzle.sets[set_idx].output[ii];
       let out_v = game_state.output[ii];
       if (out_v !== undefined && out_v !== v) {
         drawRect(OUTPUT_X+1, y, OUTPUT_X + OUTPUT_W - 1, y + CHH - 1, Z.UI + 1, palette[7]);
@@ -1011,7 +1021,7 @@ function statePlay(dt: number): void {
     y = y0;
     for (let ii = 0; ii < game_state.output.length; ++ii) {
       let v = game_state.output[ii];
-      if (ii >= puzzle.output.length) {
+      if (ii >= puzzle.sets[set_idx].output.length) {
         drawRect(OUTPUT_X+1, y - 2, OUTPUT_X + OUTPUT_W - 1, y + CHH - 3, Z.UI + 1, palette[7]);
       }
       font.draw({
@@ -1268,7 +1278,7 @@ function startPuzzle(id: string): void {
   game_state = new GameState();
   game_state.puzzle_idx = idx;
 
-  if (engine.DEBUG && id === 'multiply') {
+  if (engine.DEBUG && id === 'mult2') {
     let node1 = new Node('9x3');
     node1.setCode(`MOV ch3 INPUT
 MOV ACC INPUT
@@ -1735,7 +1745,7 @@ export function main(): void {
 
 
   if (engine.DEBUG && false) {
-    startPuzzle('multiply');
+    startPuzzle('mult2');
   } else {
     engine.setState(stateLevelSelect);
   }
