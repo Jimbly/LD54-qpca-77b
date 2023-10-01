@@ -668,7 +668,7 @@ class GameState {
     // check victory condition
     let puzzle = puzzles[puzzle_idx];
     let success = output.length === puzzle.sets[this.set_idx].output.length &&
-      input_idx === puzzle.sets[this.set_idx].input.length;
+      input_idx >= puzzle.sets[this.set_idx].input.length;
     for (let ii = 0; success && ii < output.length; ++ii) {
       if (output[ii] !== puzzle.sets[this.set_idx].output[ii]) {
         success = false;
@@ -895,24 +895,27 @@ function statePlay(dt: number): void {
       color: palette_font[5],
       x, y, z, w, h,
       align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
-      text: `YOUR SCORE:\n${score.loc} Lines of code\n$${score.nodes} Cost\n${score.cycles} Cycles`,
+      text: 'YOUR SCORE:\n' +
+        `${score.cycles} Cycles\n` +
+        `${score.loc} Lines of code\n` +
+        `$${score.nodes} Cost\n`,
     }) + 16;
 
     let scoresa = score_systema.getHighScores(game_state.puzzle_idx);
-    let scoresb = score_systema.getHighScores(game_state.puzzle_idx);
-    let scoresc = score_systema.getHighScores(game_state.puzzle_idx);
+    let scoresb = score_systemb.getHighScores(game_state.puzzle_idx);
+    let scoresc = score_systemc.getHighScores(game_state.puzzle_idx);
 
     y += font.draw({
       color: palette_font[5],
       x, y, z, w, h,
       align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
       text: 'HIGH SCORE:\n' +
+        `${scoresc && scoresc.length ? scoresc[0].score.cycles : '?'} Cycles` +
+        `${scoresc && scoresc.length ? ` (${scoresc[0].name})` : ''}\n` +
         `${scoresa && scoresa.length ? scoresa[0].score.loc : '?'} Lines of code` +
         `${scoresa && scoresa.length ? ` (${scoresa[0].name})` : ''}\n` +
         `$${scoresb && scoresb.length ? scoresb[0].score.nodes : '?'} Cost` +
-        `${scoresb && scoresb.length ? ` (${scoresb[0].name})` : ''}\n` +
-        `${scoresc && scoresc.length ? scoresc[0].score.cycles : '?'} Cycles` +
-        `${scoresc && scoresc.length ? ` (${scoresc[0].name})` : ''}`,
+        `${scoresb && scoresb.length ? ` (${scoresb[0].name})` : ''}`,
     }) + 16;
 
     let no_next_exercise = game_state.puzzle_idx === puzzles.length - 1;
@@ -1865,7 +1868,7 @@ export function main(): void {
   init();
 
   const ENCODE_CYCLES = 100000000;
-  const ENCODE_NODES = 100;
+  const ENCODE_NODES = 1000;
   const ENCODE_LOC = 1000;
   // min everything
   function encodeScoreLOC(score: ScoreData): number {
@@ -1953,19 +1956,19 @@ export function main(): void {
     score_to_value: encodeScoreLOC,
     value_to_score: parseScoreLOC,
     level_defs: level_defs,
-    score_key: 'LD54lc'
+    score_key: 'LD54l2'
   });
   score_systemb = scoreAlloc({
     score_to_value: encodeScoreNodes,
     value_to_score: parseScoreNodes,
     level_defs: level_defs,
-    score_key: 'LD54nd'
+    score_key: 'LD54n2'
   });
   score_systemc = scoreAlloc({
     score_to_value: encodeScoreCycles,
     value_to_score: parseScoreCycles,
     level_defs: level_defs,
-    score_key: 'LD54cy'
+    score_key: 'LD54c2'
   });
 
 

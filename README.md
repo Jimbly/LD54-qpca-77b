@@ -14,7 +14,6 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-100-like
 
 TODO:
-* node cost metric instead of count
 * consider: a couple ops to make logic easier, but less efficient?
 * more puzzles - more easier ones - some single-node?
   * output 0 if positive, 1 if negative - simpler than filter?
@@ -24,6 +23,7 @@ TODO:
 * tutorialize a bit, have hints for first levels
 
 POLISH:
+* volume/sound on/off toggle
 * different BG color, a bit more color usage
 * !breakpoint
 
