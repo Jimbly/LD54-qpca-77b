@@ -137,6 +137,52 @@ Write the larger of the two to OUTPUT`,
 Write their product to OUTPUT`,
     sets,
   };
+}()), (function () {
+  rand.reseed(2345);
+  let sets: PuzzleIOSet[] = [];
+  let input: number[] = [];
+  let output: number[] = [];
+  function push(list: number[]): void {
+    let m = list[0];
+    for (let ii = 0; ii < list.length; ++ii) {
+      m = Math.max(m, list[ii]);
+    }
+    input = input.concat(list);
+    input.push(0);
+    output.push(m);
+  }
+  push([3, 2, 1]);
+  push([1, 2, 3]);
+  function fillit(): void {
+    for (let ii = 0; ii < 10; ++ii) {
+      let n = 2 + rand.range(4);
+      if (input.length + n + 1 > 26) {
+        break;
+      }
+      let list = [];
+      for (let jj = 0; jj < n; ++jj) {
+        list.push(1 + rand.range(MAXINT - 2));
+      }
+      push(list);
+    }
+    sets.push({ input, output });
+    input = [];
+    output = [];
+  }
+  fillit();
+
+  fillit();
+
+  fillit();
+
+  return {
+    id: 'maxn',
+    title: 'Maximum Redux',
+    desc: 'Find the largest of lists of numbers',
+    goal: `Read a list numbers from INPUT terminated by a ZERO
+Write the largest number from the list to OUTPUT`,
+    sets,
+  };
 }())];
 
 puzzles.forEach(function (puzzle) {

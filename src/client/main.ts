@@ -137,7 +137,7 @@ const CHANNELS_X = 4;
 const CHANNELS_Y = NODES_Y + NODES_H + 4;
 const CHANNELS_H = BUTTON_H;
 const CHANNEL_W = CHANNELS_H;
-const MAX_CHANNELS = 18;
+const MAX_CHANNELS = 14;
 const CHANNELS_PAD = 2;
 // const CHANNELS_W = CHANNEL_W * MAX_CHANNELS + CHANNELS_PAD * (MAX_CHANNELS - 1);
 
@@ -959,8 +959,8 @@ function statePlay(dt: number): void {
       img: sprites.icon_menu,
       shrink: 1,
       tooltip: game_state.isSimulating() ?
-        'Stop, save, and return to puzzle select' :
-        'Save and return to puzzle select',
+        'Stop, save, and return to exercise select' :
+        'Save and return to exercise select',
     })) {
       undoPush(true);
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -1277,6 +1277,19 @@ function statePlay(dt: number): void {
     }
   }
 
+  let param = {
+    x: game_width - BUTTON_H * 4 - 4,
+    y: CHANNELS_Y,
+    w: BUTTON_H * 4, h: BUTTON_H,
+    text: 'Reference Manual',
+    url: `${getURLBase()}manual.html`,
+  };
+  if (link(param)) {
+    playUISound('button_click');
+  }
+  buttonText(param);
+
+
   let focus_key = spotGetCurrentFocusKey();
   if (focus_key !== last_focus) {
     last_focus = focus_key;
@@ -1423,7 +1436,7 @@ function stateLevelSelect(dt: number): void {
     x, y, w: game_width,
     align: ALIGN.HCENTER|ALIGN.HWRAP,
     size: CHH,
-    text: `QPCA-77b Puzzle ${cur_level_idx + 1} / ${MAX_LEVEL}`,
+    text: `QPCA-77b Training Exercise ${cur_level_idx + 1} / ${MAX_LEVEL}`,
   });
   y += CHH;
   font.draw({
@@ -1769,7 +1782,7 @@ export function main(): void {
   });
 
 
-  if (engine.DEBUG && false) {
+  if (engine.DEBUG && true) {
     startPuzzle('mult2');
   } else {
     engine.setState(stateLevelSelect);

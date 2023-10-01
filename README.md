@@ -14,9 +14,8 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-100-like
 
 TODO:
-* more puzzles (max of two, max of N)
-* also link to reference manual during a puzzle?
-* need 3 input/output sets to prevent simple output hacks
+* consider: a couple ops to make logic easier, but less efficient?
+* more puzzles - more easier ones
 
 POLISH:
 * F-hotkeys for each main action
