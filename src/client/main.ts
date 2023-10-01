@@ -160,14 +160,14 @@ declare module 'glov/client/ui' {
 
 class NodeType {
   h: number;
-  constructor(public lines: number, public radios: number, public title: string) {
+  constructor(public lines: number, public radios: number, public title: string, public cost: number) {
     this.h = (lines + 1) * CHH;
   }
 }
 let node_types: Record<string, NodeType> = {
-  '4x1': new NodeType(4, 1, 'AW0401'),
-  '9x3': new NodeType(9, 3, 'AW0903'),
-  '16x5': new NodeType(16, 5, 'AW1605'),
+  '4x1': new NodeType(4, 1, 'AW0401', 7),
+  '9x3': new NodeType(9, 3, 'AW0903', 21),
+  '16x5': new NodeType(16, 5, 'AW1605', 42),
 };
 const NUM_NODE_TYPES = Object.keys(node_types).length;
 
@@ -696,12 +696,14 @@ class GameState {
   score(): ScoreData {
     let loc = 0;
     let { nodes } = this;
+    let cost = 0;
     nodes.forEach((node) => {
+      cost += node.node_type.cost;
       loc += node.op_lines.length;
     });
     return {
       loc,
-      nodes: nodes.length,
+      nodes: cost,
       cycles: this.tick_idx,
     };
   }
@@ -893,7 +895,7 @@ function statePlay(dt: number): void {
       color: palette_font[5],
       x, y, z, w, h,
       align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
-      text: `YOUR SCORE:\n${score.loc} Lines of code\n${score.nodes} Nodes\n${score.cycles} Cycles`,
+      text: `YOUR SCORE:\n${score.loc} Lines of code\n$${score.nodes} Cost\n${score.cycles} Cycles`,
     }) + 16;
 
     let scoresa = score_systema.getHighScores(game_state.puzzle_idx);
@@ -907,7 +909,7 @@ function statePlay(dt: number): void {
       text: 'HIGH SCORE:\n' +
         `${scoresa && scoresa.length ? scoresa[0].score.loc : '?'} Lines of code` +
         `${scoresa && scoresa.length ? ` (${scoresa[0].name})` : ''}\n` +
-        `${scoresb && scoresb.length ? scoresb[0].score.nodes : '?'} Nodes` +
+        `$${scoresb && scoresb.length ? scoresb[0].score.nodes : '?'} Cost` +
         `${scoresb && scoresb.length ? ` (${scoresb[0].name})` : ''}\n` +
         `${scoresc && scoresc.length ? scoresc[0].score.cycles : '?'} Cycles` +
         `${scoresc && scoresc.length ? ` (${scoresc[0].name})` : ''}`,
@@ -983,7 +985,7 @@ function statePlay(dt: number): void {
       color: palette_font[5],
       x: GOAL_X + PANEL_HPAD, y, w: GOAL_W - PANEL_HPAD * 2, h: GOAL_H - PANEL_VPAD*2 - CHH,
       align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
-      text: `${score.cycles} Cycles\n${score.loc} Lines of code\n${score.nodes} Nodes`,
+      text: `${score.cycles} Cycles\n${score.loc} Lines of code\n$${score.nodes} Cost`,
     });
   }
   font.draw({
@@ -1267,7 +1269,7 @@ function statePlay(dt: number): void {
       color: palette_font[7],
       x, y, z: Z.NODES + 1,
       w: NODE_W,
-      text: node_type.title,
+      text: `${node_type.title} ($${node_type.cost})`,
       align: ALIGN.HCENTER,
     });
     y += CHH;
@@ -1522,7 +1524,7 @@ const SCORE_COLUMNSB: ColumnDef[] = [
   // widths are just proportional, scaled relative to `width` passed in
   { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
   { name: '', width: 60, align: ALIGN.HFIT | ALIGN.VCENTER }, // Name
-  { name: 'NODES', width: 24 },
+  { name: 'COST', width: 24 },
 ];
 const SCORE_COLUMNSC: ColumnDef[] = [
   // widths are just proportional, scaled relative to `width` passed in
@@ -1537,7 +1539,7 @@ function myScoreToRowA(row: unknown[], score: ScoreData): void {
   row.push(score.loc);
 }
 function myScoreToRowB(row: unknown[], score: ScoreData): void {
-  row.push(score.nodes);
+  row.push(`$${score.nodes}`);
 }
 function myScoreToRowC(row: unknown[], score: ScoreData): void {
   row.push(score.cycles);
@@ -1642,11 +1644,20 @@ function stateLevelSelect(dt: number): void {
   };
   scoresDraw({
     ...score_common,
+    score_system: score_systemc,
+    x,
+    columns: SCORE_COLUMNSC,
+    scoreToRow: myScoreToRowC,
+    allow_rename: true,
+  });
+  x += width + pad;
+
+  scoresDraw({
+    ...score_common,
     score_system: score_systema,
     x,
     columns: SCORE_COLUMNSA,
     scoreToRow: myScoreToRowA,
-    allow_rename: true,
   });
   x += width + pad;
 
@@ -1659,13 +1670,6 @@ function stateLevelSelect(dt: number): void {
   });
   x += width + pad;
 
-  scoresDraw({
-    ...score_common,
-    score_system: score_systemc,
-    x,
-    columns: SCORE_COLUMNSC,
-    scoreToRow: myScoreToRowC,
-  });
 
   y = button_y;
   button_w = floor(BUTTON_H * 1.5);
@@ -1776,7 +1780,7 @@ function stateLevelSelect(dt: number): void {
           y: y - CHH,
           x: xstart, w: x - xstart,
           align: ALIGN.HCENTER,
-          text: `${stats.loc}L/${stats.nodes}N/${stats.cycles || '?'}C`,
+          text: `${stats.loc}L/$${stats.nodes}/${stats.cycles || '?'}C`,
         });
       }
     }
@@ -1949,23 +1953,23 @@ export function main(): void {
     score_to_value: encodeScoreLOC,
     value_to_score: parseScoreLOC,
     level_defs: level_defs,
-    score_key: 'LD54loc'
+    score_key: 'LD54lc'
   });
   score_systemb = scoreAlloc({
     score_to_value: encodeScoreNodes,
     value_to_score: parseScoreNodes,
     level_defs: level_defs,
-    score_key: 'LD54nod'
+    score_key: 'LD54nd'
   });
   score_systemc = scoreAlloc({
     score_to_value: encodeScoreCycles,
     value_to_score: parseScoreCycles,
     level_defs: level_defs,
-    score_key: 'LD54cyc'
+    score_key: 'LD54cy'
   });
 
 
-  if (engine.DEBUG && true) {
+  if (engine.DEBUG && false) {
     autoStartPuzzle(puzzle_ids.indexOf('alt'));
     // game_state.ff();
   } else {
