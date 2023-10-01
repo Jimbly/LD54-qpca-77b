@@ -21,6 +21,70 @@ export type Puzzle = {
 };
 
 export const puzzles: Puzzle[] = [(function () {
+  rand.reseed(5678);
+  let sets: PuzzleIOSet[] = [];
+  let input: number[] = [];
+  let output: number[] = [];
+  function fillit(): void {
+    while (input.length < 26) {
+      input.push(MININT + rand.range(MAXINT - MININT + 1));
+      let v = MININT + rand.range(MAXINT - MININT + 1);
+      input.push(v);
+      output.push(v);
+    }
+    sets.push({ input, output });
+    input = [];
+    output = [];
+  }
+  input.push(1, 2, 3, 4);
+  output.push(2, 4);
+  fillit();
+  fillit();
+  fillit();
+
+  return {
+    id: 'alt',
+    title: 'Alternate',
+    desc: 'Output every other input',
+    goal: `Read numbers from INPUT
+Write every other number to OUTPUT, starting with the second one`,
+    sets,
+  };
+}()), (function () {
+  rand.reseed(6789);
+  let sets: PuzzleIOSet[] = [];
+  let input: number[] = [];
+  let output: number[] = [];
+  function push(v: number): void {
+    if (v === 0) {
+      return;
+    }
+    input.push(v);
+    if (v > 0) {
+      output.push(v);
+    }
+  }
+  function fillit(): void {
+    while (input.length < 26) {
+      push(MININT + rand.range(MAXINT - MININT + 1));
+    }
+    sets.push({ input, output });
+    input = [];
+    output = [];
+  }
+  fillit();
+  fillit();
+  fillit();
+
+  return {
+    id: 'filter',
+    title: 'Filter',
+    desc: 'Output positive values',
+    goal: `Read numbers from INPUT
+Write any positive values to OUTPUT`,
+    sets,
+  };
+}()), (function () {
   rand.reseed(1234);
   let sets: PuzzleIOSet[] = [];
   let input: number[] = [];
@@ -139,6 +203,51 @@ Write their product to OUTPUT`,
     sets,
   };
 }()), (function () {
+  rand.reseed(2468);
+  let sets: PuzzleIOSet[] = [];
+  let input: number[] = [];
+  let output: number[] = [];
+  let lastv = -1;
+  function push(v: number): void {
+    input.push(v);
+    if (v !== lastv) {
+      output.push(v);
+    }
+    lastv = v;
+  }
+  push(1);
+  push(1);
+  push(2);
+  push(3);
+  push(3);
+  function fillit(): void {
+    while (input.length < 26) {
+      if (rand.range(2)) {
+        push(lastv);
+      } else {
+        push(1 + rand.range(MAXINT - 1));
+      }
+    }
+    sets.push({ input, output });
+    input = [];
+    output = [];
+    lastv = -1;
+  }
+  fillit();
+
+  fillit();
+
+  fillit();
+
+  return {
+    id: 'rmdup',
+    title: 'Remove Duplicates',
+    desc: 'Remove consecutive duplicates',
+    goal: `Read numbers from INPUT
+Write each number to OUTPUT unless it is the same as the previously written number`,
+    sets,
+  };
+}()), (function () {
   rand.reseed(2345);
   let sets: PuzzleIOSet[] = [];
   let input: number[] = [];
@@ -188,7 +297,7 @@ Write the largest number from the list to OUTPUT`,
 
 if (engine.DEBUG) {
   puzzles.push({
-    id: 'debug',
+    id: 'debug2',
     title: 'Debug',
     desc: 'Trivial',
     goal: 'Line 1\nLine 2',

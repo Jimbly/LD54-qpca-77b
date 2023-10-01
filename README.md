@@ -16,7 +16,7 @@ Plan: TIS-100-like
 TODO:
 * sound FX
 * consider: a couple ops to make logic easier, but less efficient?
-* more puzzles - more easier ones
+* more puzzles - more easier ones - some single-node?
 
 POLISH:
 * title screen, startup sequence

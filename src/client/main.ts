@@ -638,7 +638,7 @@ class GameState {
     this.tick_idx++;
     this.input_read_idx = -1;
     this.did_output = null;
-    let { nodes, radios, puzzle_idx, output } = this;
+    let { nodes, radios, puzzle_idx, output, input_idx } = this;
 
     // step nodes
     nodes.forEach((node) => {
@@ -656,7 +656,8 @@ class GameState {
 
     // check victory condition
     let puzzle = puzzles[puzzle_idx];
-    let success = output.length === puzzle.sets[this.set_idx].output.length;
+    let success = output.length === puzzle.sets[this.set_idx].output.length &&
+      input_idx === puzzle.sets[this.set_idx].input.length;
     for (let ii = 0; success && ii < output.length; ++ii) {
       if (output[ii] !== puzzle.sets[this.set_idx].output[ii]) {
         success = false;
@@ -813,6 +814,24 @@ function init(): void {
 
 let cur_level_idx = 0;
 
+function autoStartPuzzle(new_puzzle_idx: number): void {
+  let new_puzzle_id = puzzle_ids[new_puzzle_idx];
+  cur_level_slot = 0;
+  let storage_key = `p${new_puzzle_id}.${cur_level_slot}`;
+  let saved_data = localStorageGet(storage_key);
+  if (saved_data) {
+    cur_level_idx = new_puzzle_idx;
+    game_state = new GameState();
+    game_state.fromJSON(new_puzzle_idx, JSON.parse(saved_data));
+    undoReset();
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    engine.setState(statePlay);
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    startPuzzle(new_puzzle_id);
+  }
+}
+
 let last_focus: string = '';
 function statePlay(dt: number): void {
   game_state.tick(dt);
@@ -897,7 +916,7 @@ function statePlay(dt: number): void {
     if (buttonText({
       x, y, z,
       w: button_w,
-      text: 'Exit to Menu',
+      text: 'View Scores',
     })) {
       game_state.stop();
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -911,21 +930,7 @@ function statePlay(dt: number): void {
       text: 'Next Exercise',
       disabled: no_next_exercise,
     })) {
-      let new_puzzle_idx = game_state.puzzle_idx + 1;
-      let new_puzzle_id = puzzle_ids[new_puzzle_idx];
-      cur_level_slot = 0;
-      let storage_key = `p${new_puzzle_id}.${cur_level_slot}`;
-      let saved_data = localStorageGet(storage_key);
-      if (saved_data) {
-        cur_level_idx = new_puzzle_idx;
-        game_state = new GameState();
-        game_state.fromJSON(new_puzzle_idx, JSON.parse(saved_data));
-        undoReset();
-        engine.setState(statePlay);
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        startPuzzle(new_puzzle_id);
-      }
+      autoStartPuzzle(game_state.puzzle_idx + 1);
     }
     x += button_w + 8;
 
@@ -1922,14 +1927,8 @@ export function main(): void {
 
 
   if (engine.DEBUG && true) {
-    cur_level_idx = puzzle_ids.indexOf('debug');
-    cur_level_slot = 0;
-    game_state = new GameState();
-    game_state.fromJSON(cur_level_idx, JSON.parse(localStorageGet('pdebug.0') as string));
-    undoReset();
-    engine.setState(statePlay);
+    autoStartPuzzle(puzzle_ids.indexOf('rmdup'));
     // game_state.ff();
-    // startPuzzle('debug');
   } else {
     engine.setState(stateLevelSelect);
   }
