@@ -30,8 +30,8 @@ if (lsd[PLAYER_NAME_KEY]) {
 
 let score_host = 'http://scores.dashingstrike.com';
 if (window.location.host.indexOf('localhost') !== -1 ||
-  window.location.host.indexOf('staging') !== -1 ||
-  window.location.host.indexOf('pink') !== -1
+  window.location.host.indexOf('staging') !== -1/* ||
+  window.location.host.indexOf('pink') !== -1*/
 ) {
   score_host = 'http://scores.staging.dashingstrike.com';
 }
