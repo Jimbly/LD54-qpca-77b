@@ -17,7 +17,6 @@ Plan: TIS-100-like
 TODO:
 
 POLISH:
-* show your best and your previous best on run summary
 * paper background for manual, PDF version
 * vertical wipe (dithered?) transition instead of fade
 * !breakpoint

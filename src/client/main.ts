@@ -2091,14 +2091,15 @@ function stateTitle(dt: number): void {
       w: button_w,
       h: button_h,
     };
-    // let has_score = score_system.getScore(level_idx);
-    // let need_new_seed = false; // has_score;
-    if (button({
-      ...button_param,
-      x: floor((game_width - button_w) / 2), y: y1,
-      text: 'Begin Training Exercise #1',
-    })) {
-      autoStartPuzzle(0);
+
+    if (!bestScoreForLevel(puzzle_ids[0])) {
+      if (button({
+        ...button_param,
+        x: floor((game_width - button_w) / 2), y: y1,
+        text: 'Begin Training Exercise #1',
+      })) {
+        autoStartPuzzle(0);
+      }
     }
 
     if (button({
@@ -2303,7 +2304,7 @@ export function main(): void {
 
 
   stateTitleInit();
-  if (engine.DEBUG && true) {
+  if (engine.DEBUG && false) {
     autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
     // engine.setState(stateLevelSelect);
