@@ -55,6 +55,7 @@ import { DataObject, TSMap } from 'glov/common/types';
 import {
   arrayToSet,
   clamp,
+  clone,
   lerp,
   mod,
   plural,
@@ -570,6 +571,8 @@ class Node {
   }
 }
 
+let prev_best: ScoreData | null = null;
+
 class GameState {
   nodes: Node[] = [];
   puzzle_idx = 0;
@@ -612,6 +615,7 @@ class GameState {
     this.elapsed_time_ff = 4000;
   }
   resetSim(): void {
+    prev_best = clone(bestScoreForLevel(puzzle_ids[this.puzzle_idx]));
     this.tick_idx = 0;
     this.set_idx = 0;
     this.fast_forward = false;
@@ -1002,15 +1006,63 @@ function statePlay(dt: number): void {
     });
 
     y += CHH + 8;
-    y += font.draw({
+    font.draw({
       color: palette_font[5],
-      x, y, z, w, h,
-      align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
-      text: 'YOUR SCORE:\n' +
-        `${score.cycles} Cycles\n` +
-        `${score.loc} Lines of code\n` +
-        `$${score.nodes} Cost\n`,
-    }) + 16;
+      x, y, z, w,
+      align: ALIGN.HCENTERFIT,
+      text: 'YOUR SCORE:',
+    });
+    y += CHH;
+    let extra = prev_best ? score.cycles < prev_best.cycles ? ' NEW BEST!' : ` (your best: ${prev_best.cycles})` : '';
+    let text_w = font.draw({
+      color: palette_font[5],
+      x, y, z, w,
+      align: ALIGN.HCENTERFIT,
+      text: `${score.cycles} Cycles${extra}`,
+    });
+    if (prev_best) {
+      font.draw({
+        color: palette_font[score.cycles < prev_best.cycles ? 0 : score.cycles === prev_best.cycles ? 10 : 6],
+        x: x + Math.round((w + text_w)/2), y, z: z + 1,
+        align: ALIGN.HRIGHT,
+        text: extra,
+      });
+    }
+    y += CHH;
+
+    extra = prev_best ? score.loc < prev_best.loc ? ' NEW BEST!' : ` (your best: ${prev_best.loc})` : '';
+    text_w = font.draw({
+      color: palette_font[5],
+      x, y, z, w,
+      align: ALIGN.HCENTERFIT,
+      text: `${score.loc} Lines of code${extra}`,
+    });
+    if (prev_best) {
+      font.draw({
+        color: palette_font[score.loc < prev_best.loc ? 0 : score.loc === prev_best.loc ? 10 : 6],
+        x: x + Math.round((w + text_w)/2), y, z: z + 1,
+        align: ALIGN.HRIGHT,
+        text: extra,
+      });
+    }
+    y += CHH;
+
+    extra = prev_best ? score.nodes < prev_best.nodes ? ' NEW BEST!' : ` (your best: $${prev_best.nodes})` : '';
+    text_w = font.draw({
+      color: palette_font[5],
+      x, y, z, w,
+      align: ALIGN.HCENTERFIT,
+      text: `$${score.nodes} Cost${extra}`,
+    });
+    if (prev_best) {
+      font.draw({
+        color: palette_font[score.nodes < prev_best.nodes ? 0 : score.nodes === prev_best.nodes ? 10 : 6],
+        x: x + Math.round((w + text_w)/2), y, z: z + 1,
+        align: ALIGN.HRIGHT,
+        text: extra,
+      });
+    }
+    y += CHH + 16;
 
     let scoresa = score_systema.getHighScores(game_state.puzzle_idx);
     let scoresb = score_systemb.getHighScores(game_state.puzzle_idx);
@@ -1037,7 +1089,7 @@ function statePlay(dt: number): void {
         align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
         text: 'CONGRATULATIONS!\n' +
           'For completing the final training exercise, you have earned' +
-          ' yourself a QPCA-77B Professional Certification, Rev IV.',
+          ' yourself a QPCA-77B Professional Certification, Rev IV.  Thanks for playing!',
       }) + 16;
     }
 
@@ -1049,6 +1101,7 @@ function statePlay(dt: number): void {
       x, y, z,
       w: button_w,
       text: 'Keep playing',
+      hotkey: KEYS.ESC,
     })) {
       game_state.stop();
     }
@@ -1407,6 +1460,7 @@ function statePlay(dt: number): void {
         text: node.code,
         multiline: node_type.lines,
         max_len: CODE_LINE_W,
+        spellcheck: false,
         initial_focus: true,
       }, node.code);
       if (ebr.text !== last_code) {
@@ -1499,7 +1553,7 @@ function statePlay(dt: number): void {
   if (tut && puzzle.tutorial_text) {
     font.draw({
       color: palette_font[5],
-      x: NODE_X[1],
+      x: NODE_X[1] + 2,
       y: NODES_Y + 4,
       w: NODE_W * 2,
       align: ALIGN.HWRAP,
