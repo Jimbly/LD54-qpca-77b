@@ -209,7 +209,7 @@ function parseOp(toks: string[], source_line: number): Op | string {
     let v = toks[ii + 1];
     let type = def.params[ii];
     if (isFinite(Number(v))) {
-      if (type === 'number') {
+      if (type === 'number' || type === 'label') {
         p[ii] = Number(v);
       } else {
         return `Operand ${ii+1} must be a ${type}`;

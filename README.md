@@ -21,8 +21,6 @@ TODO:
 POLISH:
 * title screen, startup sequence
 * different BG color, a bit more color usage
-* F-hotkeys for each main action
-* jmp by number doesn't seem to work, (also try negative)
 * !breakpoint
 
 
