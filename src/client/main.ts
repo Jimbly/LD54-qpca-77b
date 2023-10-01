@@ -440,10 +440,10 @@ class Node {
         } else if ((m = p2.match(/^ch(\d+)$/))) {
           let radio_idx = Number(m[1]);
           if (p1 === p2) {
-            return this.stepError('Cannot read and write to the same channel');
+            return this.stepError('Cannot read and write the same channel');
           }
           if (active_radios.includes(radio_idx)) {
-            return this.stepError('Cannot write to an active channel');
+            return this.stepError('Cannot read from an active channel');
           }
           v = game_state.radios[radio_idx] || 0;
         } else if (p2 === 'input') {
