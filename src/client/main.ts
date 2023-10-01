@@ -9,6 +9,7 @@ import {
   animationSequencerCreate,
 } from 'glov/client/animation';
 import * as camera2d from 'glov/client/camera2d';
+import { cmd_parse } from 'glov/client/cmds';
 import { editBox } from 'glov/client/edit_box';
 import * as engine from 'glov/client/engine';
 import {
@@ -30,6 +31,7 @@ import {
   scoreAlloc,
 } from 'glov/client/score';
 import { scoresDraw } from 'glov/client/score_ui';
+import * as settings from 'glov/client/settings';
 import { spotGetCurrentFocusKey } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
 import {
@@ -164,6 +166,26 @@ declare module 'glov/client/ui' {
     node_panel_info: Sprite;
   }
 }
+
+declare module 'glov/client/settings' {
+  let sfx: number;
+}
+
+settings.register({
+  sfx: {
+    label: 'Render Scale Full Clear',
+    default_value: 2,
+    type: cmd_parse.TYPE_INT,
+    range: [0,2],
+    on_change: function () {
+      if (settings.sfx) {
+        settings.set('volume', 1);
+      } else {
+        settings.set('volume', 0);
+      }
+    },
+  },
+});
 
 let best_scores: TSMap<ScoreData | null> = {};
 function bestScoreForLevel(puzzle_id: string): ScoreData | null {
@@ -668,21 +690,31 @@ class GameState {
         // collision, but ok
         return null;
       }
-      playUISound('outbad');
+      if (settings.sfx === 2) {
+        playUISound('outbad');
+      }
       return 'Output collision';
     }
     if (this.output.length >= MAX_OUTPUT) {
-      playUISound('outbad');
+      if (settings.sfx === 2) {
+        playUISound('outbad');
+      }
       return 'Output overflow';
     }
     let puzzle = puzzles[this.puzzle_idx];
     let pout = puzzle.sets[this.set_idx].output;
     if (this.output.length >= pout.length) {
-      playUISound('outbad');
+      if (settings.sfx === 2) {
+        playUISound('outbad');
+      }
     } else if (v !== pout[this.output.length]) {
-      playUISound('outbad');
+      if (settings.sfx === 2) {
+        playUISound('outbad');
+      }
     } else {
-      playUISound('outgood');
+      if (settings.sfx === 2) {
+        playUISound('outgood');
+      }
     }
     this.output.push(v);
     this.did_output = v;
@@ -731,7 +763,9 @@ class GameState {
       if (this.set_idx === puzzle.sets.length - 1) {
         this.state = 'win';
         setTimeout(function () {
-          playUISound('victory');
+          if (settings.sfx === 2) {
+            playUISound('victory');
+          }
         }, 150);
         this.submitScore();
       } else {
@@ -740,7 +774,9 @@ class GameState {
       }
     }
     if (this.hasError()) {
-      playUISound('error');
+      if (settings.sfx === 2) {
+        playUISound('error');
+      }
     }
   }
   won(): boolean {
@@ -870,7 +906,10 @@ function undoRedo(): void {
 
 let sprites: Record<string, Sprite> = {};
 function init(): void {
-  ['play', 'pause', 'stop', 'menu', 'redo', 'undo', 'help', 'ff', 'step'].forEach(function (name) {
+  [
+    'play', 'pause', 'stop', 'menu', 'redo', 'undo', 'help', 'ff', 'step',
+    'sound1', 'sound2', 'sound0',
+  ].forEach(function (name) {
     name = `icon_${name}`;
     sprites[name] = spriteCreate({ name });
   });
@@ -1640,14 +1679,18 @@ function stateLevelSelect(dt: number): void {
   if (buttonText({
     x: x + arrow_inset, y,
     h: button_h, w: button_w,
-    text: 'PREV',
-    disabled: cur_level_idx === 0,
+    text: cur_level_idx === 0 ? 'TITLE' : 'PREV',
   })) {
-    cur_level_idx--;
     choosing_new_game = false;
-    score_systema.forceRefreshScores(cur_level_idx);
-    score_systemb.forceRefreshScores(cur_level_idx);
-    score_systemc.forceRefreshScores(cur_level_idx);
+    if (cur_level_idx === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      engine.setState(stateTitle);
+    } else {
+      cur_level_idx--;
+      score_systema.forceRefreshScores(cur_level_idx);
+      score_systemb.forceRefreshScores(cur_level_idx);
+      score_systemc.forceRefreshScores(cur_level_idx);
+    }
   }
   if (buttonWasFocused() && cur_level_idx > 0) {
     score_systema.prefetchScores(cur_level_idx - 1);
@@ -1866,6 +1909,19 @@ function stateLevelSelect(dt: number): void {
     x += 8;
   }
 
+  if (button({
+    x: game_width - button_h * 4 - 4 - button_h - 4,
+    y,
+    w: button_h, h: button_h,
+    img: settings.sfx === 0 ? sprites.icon_sound0 : settings.sfx === 1 ? sprites.icon_sound1 : sprites.icon_sound2,
+    shrink: 1,
+    tooltip: settings.sfx === 0 ? 'SFX Off' : settings.sfx === 1 ? 'Mute beeps and bloops' : 'All SFX on',
+    sound_button: null,
+  })) {
+    settings.set('sfx', settings.sfx === 0 ? 2 : settings.sfx - 1);
+    playUISound('button_click');
+  }
+
   let param = {
     x: game_width - button_h * 4 - 4,
     y,
@@ -1901,6 +1957,10 @@ function stateTitleInit(): void {
   title_anim.add(t + 500, 300, (progress) => {
     title_alpha.button = progress;
   });
+  if (engine.DEBUG) {
+    title_anim.update(Infinity);
+    title_anim = null;
+  }
 }
 const style_title = fontStyleColored(null, palette_font[5]);
 function stateTitle(dt: number): void {
@@ -1927,19 +1987,19 @@ function stateTitle(dt: number): void {
   });
   y += 36;
   font.draw({
+    color: palette_font[9],
+    alpha: title_alpha.sub,
+    x: 0, y, w: W, align: ALIGN.HCENTER,
+    text: 'By Jimb Esser in 48 hours for Ludum Dare 54',
+  });
+  y += CHH + 30;
+  font.draw({
     color: palette_font[5],
     alpha: title_alpha.desc,
     x: W/6,
     w: W - W/6*2,
     y, align: ALIGN.HCENTER | ALIGN.HWRAP,
-    text: 'QPCA-77B Visualization Interface',
-  });
-  y += CHH + 30;
-  font.draw({
-    color: palette_font[9],
-    alpha: title_alpha.sub,
-    x: 0, y, w: W, align: ALIGN.HCENTER,
-    text: 'By Jimb Esser in 48 hours for Ludum Dare 54',
+    text: 'Welcome to the QPCA-77B Visualization Interface',
   });
 
 
@@ -1986,8 +2046,14 @@ function stateTitle(dt: number): void {
       playUISound('button_click');
     }
     buttonText(param);
-
   }
+
+  font.draw({
+    color: palette_font[9],
+    alpha: title_alpha.sub,
+    x: 0, y: game_height - CHH - 8, w: W, align: ALIGN.HCENTER,
+    text: 'Copywrite 1977 QuantumPulse Ltd, Novi Grad, Sokovia',
+  });
 }
 
 
@@ -2160,11 +2226,12 @@ export function main(): void {
   });
 
 
+  stateTitleInit();
   if (engine.DEBUG && true) {
-    autoStartPuzzle(0); // puzzle_ids.indexOf('inc'));
+    // autoStartPuzzle(0); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
+    engine.setState(stateLevelSelect);
   } else {
-    stateTitleInit();
     engine.setState(stateTitle);
   }
 }
