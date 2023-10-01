@@ -16,11 +16,10 @@ Plan: TIS-100-like
 TODO:
 
 POLISH:
-* vertical wipe transition everywhere
-* volume/sound on/off toggle
 * different BG color, a bit more color usage
 * show your best and your previous best on run summary
 * paper background for manual, PDF version
+* vertical wipe (dithered?) transition instead of fade
 * !breakpoint
 * startup sequence (can't do sound, though?)
 

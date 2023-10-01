@@ -38,6 +38,7 @@ import {
   Sprite,
   spriteCreate,
 } from 'glov/client/sprites';
+import * as transition from 'glov/client/transition';
 import * as ui from 'glov/client/ui';
 import {
   button,
@@ -210,6 +211,10 @@ function bestScoreUpdate(puzzle_id: string, score: ScoreData): void {
     record.loc = min(record.loc, score.loc);
   }
   localStorageSetJSON(key, record);
+}
+
+function queueTransition(): void {
+  transition.queue(Z.TRANSITION_FINAL, transition.fade(100));
 }
 
 class NodeType {
@@ -925,6 +930,7 @@ function init(): void {
 let cur_level_idx = 0;
 
 function setStatePlay(): void {
+  queueTransition();
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
   engine.setState(statePlay);
   playUISound('insert');
@@ -1050,6 +1056,7 @@ function statePlay(dt: number): void {
       text: 'View Scores',
       sound_button: 'eject',
     })) {
+      queueTransition();
       game_state.stop();
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       engine.setState(stateLevelSelect);
@@ -1218,6 +1225,7 @@ function statePlay(dt: number): void {
       tooltip: 'Toggle Quick Reference',
     })) {
       mode_quick_reference = !mode_quick_reference;
+      queueTransition();
     }
     x += w + 2;
     if (button({
@@ -1230,6 +1238,7 @@ function statePlay(dt: number): void {
       hotkey: KEYS.ESC,
       sound_button: 'eject',
     })) {
+      queueTransition();
       undoPush(true);
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       engine.setState(stateLevelSelect);
@@ -1683,6 +1692,7 @@ function stateLevelSelect(dt: number): void {
   })) {
     choosing_new_game = false;
     if (cur_level_idx === 0) {
+      queueTransition();
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       engine.setState(stateTitle);
     } else {
@@ -2032,6 +2042,7 @@ function stateTitle(dt: number): void {
       y: y2,
       text: 'Exercise Select and Rankings',
     })) {
+      queueTransition();
       engine.setState(stateLevelSelect);
     }
 
