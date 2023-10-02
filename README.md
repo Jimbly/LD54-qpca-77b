@@ -12,32 +12,18 @@ Acknowledgements:
 
 Start with: `npm start` (after running `npm i` once)
 
-Plan: TIS-100-like
 
 TODO:
 
 POLISH:
+* move "best score so far" into score system
 * vertical wipe (dithered?) transition instead of fade
+* any better edit box stuff we can do for max lines?  can we change text and modify the cursor to constantly clamp?
+* change high score payload to be something very tightly encoded (maybe add import/export buttons in this format?)
+* merge changes back to GLOV.js
 * !breakpoint
-* startup sequence (can't do sound, though?)
 
-
-Nodes: 22ch wide + 4ch output + 1ch margin + 3ch borders = 30ch
-Input/output: 6ch input + 11ch output = 17ch
-Padding: 1ch around node graph each side; 4 borders
-total w = 30x3 + 17 + 2+4 = 113ch wide; 16:10 would be 28ch tall (8:20 characters)
-Node adders: 30ch + 2
-total w = 113 + 32 = 145; 16:10 would be 36ch tall
-
-Height:
-  goal: 6 lines + 1ch borders
-  ~node adders: 4-5ch tall +~
-  borders
-  approx 8 removed
-  ~leaves 32 for node bodies = 20 + 10 + 2 titlebars~
-  leaves 28 for node bodies = 2 title + 20 + 6
-do funny pixel aspect, chars are 9x20
-
+Plan: TIS-100-like
 
 ```
 Examples w/add/subtract

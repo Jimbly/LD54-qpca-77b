@@ -438,7 +438,7 @@ class Node {
           if (opdef.params[jj] === 'label') {
             let p = jj === 0 ? op.p1 : op.p2;
             if (typeof p === 'string') {
-              if (labels[p] === undefined) {
+              if (labels[p] === undefined && !(OKTOK[p] || p.match(/^ch[1-9]\d*$/))) {
                 if (!this.error_str) {
                   this.error_str = `Unknown label "${p}"`;
                   this.error_idx = op.source_line;
