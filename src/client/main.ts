@@ -438,7 +438,7 @@ class Node {
           if (opdef.params[jj] === 'label') {
             let p = jj === 0 ? op.p1 : op.p2;
             if (typeof p === 'string') {
-              if (labels[p] === undefined && !(OKTOK[p] || p.match(/^ch[1-9]\d*$/))) {
+              if (labels[p] === undefined && !(p==='nil' || p.match(/^ch[1-9]\d*$/))) {
                 if (!this.error_str) {
                   this.error_str = `Unknown label "${p}"`;
                   this.error_idx = op.source_line;
@@ -583,11 +583,10 @@ class Node {
       // eslint-disable-next-line no-fallthrough
       case 'jmp': {
         let m;
-        if (label === 'acc') {
-          label = this.acc;
-        } else if (label === 'input') {
-          label = game_state.readInput();
-        } else if (typeof label === 'string' && (m = label.match(/^ch(\d+)$/))) {
+        if (label === 'nil') {
+          label = 0;
+        }
+        if (typeof label === 'string' && (m = label.match(/^ch(\d+)$/))) {
           let radio_idx = Number(m[1]);
           if (active_radios.includes(radio_idx)) {
             return this.stepError('Cannot read from an active channel');
