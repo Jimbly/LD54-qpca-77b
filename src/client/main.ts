@@ -888,12 +888,10 @@ function tutorialMode(): boolean {
   return !best_score;
 }
 
-const HELP = `QUICK REFERENCE
-MOV [OUTPUT|ACC|CH#] [INPUT|ACC|CH#|number]
+const HELP = `MOV [OUTPUT|ACC|CH#] [INPUT|ACC|CH#|number]
 INC/DEC/NEG - modifies ACC           NOP - sleeps 1 cycle
 JMP label; JGZ/JLZ/JEZ/JNZ CH# label - >0 / <0 / =0 / <>0
-Conditional J*Z ops must test a signal from other node(s).
-Two signals on the same channel will sum.`;
+J*Z ops must test CH# from other node.  Two+ signals sum.`;
 
 let last_saved: string = '';
 let undo_stack: string[] = [];
@@ -1177,7 +1175,7 @@ function statePlay(dt: number): void {
   // draw goal
   panel({
     x: GOAL_X, y: GOAL_Y, w: GOAL_W, h: GOAL_H,
-    sprite: ui.sprites.node_panel_info,
+    sprite: mode_quick_reference ? ui.sprites.node_panel_bg : ui.sprites.node_panel_info,
   });
   if (game_state.won() && false) {
     let score = game_state.score();
