@@ -1833,7 +1833,7 @@ function stateLevelSelect(dt: number): void {
   // let has_score = false; // score_systema.hasScore(cur_level_idx);
 
   const button_y = camera2d.y1() - button_h - 4;
-  const H = button_y;
+  const H = button_y - CHH;
   let pad = 12;
   const W = game_width - pad * 2;
   const width = floor((W - pad*2)/3);
