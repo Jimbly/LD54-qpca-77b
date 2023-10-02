@@ -3,12 +3,22 @@
 const local_storage = require('glov/client/local_storage.js');
 local_storage.setStoragePrefix('LD54'); // Before requiring anything else that might load from this
 
+// eslint-disable-next-line import/order
+import { platformRegister } from 'glov/common/platform';
+platformRegister('itch', {
+  devmode: 'auto',
+  reload: true,
+  reload_updates: true,
+});
+
+
 import assert from 'assert';
 import {
   AnimationSequencer,
   animationSequencerCreate,
 } from 'glov/client/animation';
 import * as camera2d from 'glov/client/camera2d';
+import { platformGetID } from 'glov/client/client_config';
 import { cmd_parse } from 'glov/client/cmds';
 import { editBox } from 'glov/client/edit_box';
 import * as engine from 'glov/client/engine';
@@ -160,6 +170,10 @@ const game_width = NODES_X + NODES_W + 4;
 const game_height = CHANNELS_Y + CHANNELS_H + 4;
 
 let font: Font;
+
+const MANUAL_URL = platformGetID() === 'itch' ?
+  'http://www.dashingstrike.com/LudumDare/LD54/manual.html' :
+  `${getURLBase()}manual.html`;
 
 declare module 'glov/client/ui' {
   interface UISprites {
@@ -1636,7 +1650,7 @@ function statePlay(dt: number): void {
     y: CHANNELS_Y,
     w: BUTTON_H * 4, h: BUTTON_H,
     text: 'Reference Manual',
-    url: `${getURLBase()}manual.html`,
+    url: MANUAL_URL,
     tooltip: 'RTFM',
   };
   if (link(param)) {
@@ -2001,7 +2015,7 @@ function stateLevelSelect(dt: number): void {
     y,
     w: button_h * 4, h: button_h,
     text: 'Reference Manual',
-    url: `${getURLBase()}manual.html`,
+    url: MANUAL_URL,
   };
   if (link(param)) {
     playUISound('button_click');
@@ -2118,7 +2132,7 @@ function stateTitle(dt: number): void {
       x: button_x0 + button_w + PROMPT_PAD,
       y: y2,
       text: 'Reference Manual',
-      url: `${getURLBase()}manual.html`,
+      url: MANUAL_URL,
     };
     if (link(param)) {
       playUISound('button_click');
