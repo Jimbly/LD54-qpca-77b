@@ -1023,6 +1023,7 @@ function winnerName(score: ScoreData, scores: HighScoreList<ScoreData> | null, f
 
 let last_focus: string = '';
 function statePlay(dt: number): void {
+  gl.clearColor(palette[11][0], palette[11][1], palette[11][2], 1);
   v4copy(engine.border_clear_color, palette[11]);
   v4copy(engine.border_color, palette[11]);
   game_state.tick(dt);
@@ -1789,6 +1790,7 @@ const MAX_SLOTS = engine.defines.COMPO ? 3 : 4;
 
 let choosing_new_game = false;
 function stateLevelSelect(dt: number): void {
+  gl.clearColor(palette[4][0], palette[4][1], palette[4][2], 1);
   v4copy(engine.border_clear_color, palette[4]);
   v4copy(engine.border_color, palette[4]);
   const TITLE_H = CHH * 2;
@@ -2089,6 +2091,7 @@ function stateTitleInit(): void {
 }
 const style_title = fontStyleColored(null, palette_font[5]);
 function stateTitle(dt: number): void {
+  gl.clearColor(palette[4][0], palette[4][1], palette[4][2], 1);
   v4copy(engine.border_clear_color, palette[4]);
   v4copy(engine.border_color, palette[4]);
   let W = game_width;
