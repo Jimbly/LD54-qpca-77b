@@ -1475,7 +1475,7 @@ function statePlay(dt: number): void {
         align: ALIGN.HFIT|ALIGN.HWRAP,
         text: node.code,
       });
-      let draw_idx = node.op_lines[step_idx].source_line;
+      let draw_idx = node.op_lines[step_idx]?.source_line || 0;
       drawRect(x-1, y + draw_idx * CHH, x + CODE_LINE_W*CHW+2, y + (draw_idx + 1) * CHH - 1, Z.NODES+0.25, palette[0]);
     }
     if (error_idx !== -1) {

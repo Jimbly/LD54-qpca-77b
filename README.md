@@ -15,9 +15,9 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-100-like
 
 TODO:
+* Fix sorting of tied entries, show rank as the same
 
 POLISH:
-* paper background for manual, PDF version
 * vertical wipe (dithered?) transition instead of fade
 * !breakpoint
 * startup sequence (can't do sound, though?)
