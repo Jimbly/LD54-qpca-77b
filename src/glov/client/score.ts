@@ -82,7 +82,7 @@ export type HighScoreListEntry<ScoreType> = {
   name: string;
   score: ScoreType;
 };
-type HighScoreList<ScoreType> = HighScoreListEntry<ScoreType>[];
+export type HighScoreList<ScoreType> = HighScoreListEntry<ScoreType>[];
 class ScoreSystemImpl<ScoreType> {
   score_to_value: (s: ScoreType) => number;
   value_to_score: (v: number) => ScoreType;

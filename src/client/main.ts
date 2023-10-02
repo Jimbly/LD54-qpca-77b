@@ -37,6 +37,7 @@ import { link } from 'glov/client/link';
 import { localStorageGet, localStorageGetJSON, localStorageSet, localStorageSetJSON } from 'glov/client/local_storage';
 import * as net from 'glov/client/net';
 import {
+  HighScoreList,
   ScoreSystem,
   scoreAlloc,
 } from 'glov/client/score';
@@ -1008,6 +1009,18 @@ function autoStartPuzzle(new_puzzle_idx: number): void {
   }
 }
 
+function winnerName(score: ScoreData, scores: HighScoreList<ScoreData> | null, field: keyof ScoreData): string {
+  let winner = scores && scores.length ? scores[0] : null;
+  if (!winner) {
+    return '';
+  }
+  if (winner.score[field] === score[field]) {
+    return ' (TIED)';
+  } else {
+    return ` (${winner.name})`;
+  }
+}
+
 let last_focus: string = '';
 function statePlay(dt: number): void {
   v4copy(engine.border_clear_color, palette[11]);
@@ -1112,11 +1125,11 @@ function statePlay(dt: number): void {
       align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
       text: 'HIGH SCORE:\n' +
         `${scoresc && scoresc.length ? scoresc[0].score.cycles : '?'} Cycles` +
-        `${scoresc && scoresc.length ? ` (${scoresc[0].name})` : ''}\n` +
+        `${winnerName(score, scoresc, 'cycles')}\n` +
         `${scoresa && scoresa.length ? scoresa[0].score.loc : '?'} Lines of code` +
-        `${scoresa && scoresa.length ? ` (${scoresa[0].name})` : ''}\n` +
+        `${winnerName(score, scoresa, 'loc')}\n` +
         `$${scoresb && scoresb.length ? scoresb[0].score.nodes : '?'} Cost` +
-        `${scoresb && scoresb.length ? ` (${scoresb[0].name})` : ''}`,
+        `${winnerName(score, scoresb, 'nodes')}`,
     }) + 16;
 
     let no_next_exercise = game_state.puzzle_idx === puzzles.length - 1;
