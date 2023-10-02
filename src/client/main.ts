@@ -390,6 +390,12 @@ class Node {
       }
       m = line.match(/^([a-z]\w*):(.*)$/);
       if (m) {
+        if (labels[m[1]] !== undefined && !engine.defines.COMPO) {
+          if (!this.error_str) {
+            this.error_str = `Duplicate label "${m[1]}"`;
+            this.error_idx = ii;
+          }
+        }
         labels[m[1]] = ii;
         line = m[2].trim();
       }
@@ -420,6 +426,26 @@ class Node {
       }
       if (!found && op_lines.length) {
         labels[key] = 0;
+      }
+    }
+    if (!engine.defines.COMPO) {
+      for (let ii = 0; ii < op_lines.length; ++ii) {
+        let op = op_lines[ii];
+        let opdef = OPDEF[op.instr];
+        assert(opdef);
+        for (let jj = 0; jj < opdef.params.length; ++jj) {
+          if (opdef.params[jj] === 'label') {
+            let p = jj === 0 ? op.p1 : op.p2;
+            if (typeof p === 'string') {
+              if (labels[p] === undefined) {
+                if (!this.error_str) {
+                  this.error_str = `Unknown label "${p}"`;
+                  this.error_idx = op.source_line;
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

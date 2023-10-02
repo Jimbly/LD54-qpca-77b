@@ -15,7 +15,6 @@ Start with: `npm start` (after running `npm i` once)
 Plan: TIS-100-like
 
 TODO:
-* Fix sorting of tied entries, show rank as the same
 
 POLISH:
 * vertical wipe (dithered?) transition instead of fade
