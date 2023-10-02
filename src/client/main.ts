@@ -1748,7 +1748,7 @@ function myScoreToRowC(row: unknown[], score: ScoreData): void {
   row.push(score.cycles);
 }
 
-const MAX_SLOTS = 3;
+const MAX_SLOTS = engine.defines.COMPO ? 3 : 4;
 
 let choosing_new_game = false;
 function stateLevelSelect(dt: number): void {
@@ -1883,7 +1883,7 @@ function stateLevelSelect(dt: number): void {
 
   y = button_y;
   button_w = floor(BUTTON_H * 1.5);
-  x = 4 + BUTTON_H;
+  x = 4 + (engine.defines.COMPO ? BUTTON_H : BUTTON_H/2);
   let puzzle_id = puzzle_ids[cur_level_idx];
   for (let ii = 0; ii < MAX_SLOTS; ++ii) {
     let storage_key = `p${puzzle_id}.${ii}`;
