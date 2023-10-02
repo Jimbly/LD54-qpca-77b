@@ -389,7 +389,7 @@ class Node {
       if (m) {
         line = m[1].trim();
       }
-      m = line.match(/^([a-z]\w*):(.*)$/);
+      m = line.match(/^([a-z_.][\w.]*):(.*)$/);
       if (m) {
         if (labels[m[1]] !== undefined && !engine.defines.COMPO) {
           if (!this.error_str) {
