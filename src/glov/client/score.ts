@@ -2,7 +2,7 @@
 // Released under MIT License: https://opensource.org/licenses/MIT
 /* eslint-env browser */
 
-import { VoidFunc } from 'glov/common/types';
+import { NetErrorCallback, VoidFunc } from 'glov/common/types';
 import { fetch } from './fetch';
 
 const PLAYER_NAME_KEY = 'ld.player_name';
@@ -197,7 +197,7 @@ class ScoreSystemImpl<ScoreType> {
     });
   }
 
-  private submitScore(level_idx: number, score: ScoreType, payload: string, cb?: VoidFunc): void {
+  private submitScore(level_idx: number, score: ScoreType, payload: string, cb?: NetErrorCallback): void {
     let level = this.level_defs[level_idx].name;
     let high_score = this.score_to_value(score);
     if (!player_name) {
@@ -215,7 +215,7 @@ class ScoreSystemImpl<ScoreType> {
         if (!err) {
           this.handleScoreResp(level_idx, scores);
         }
-        cb?.();
+        cb?.(err || null);
       },
     );
   }
@@ -233,11 +233,15 @@ class ScoreSystemImpl<ScoreType> {
     let doSubmit = (): void => {
       obj = ld.local_score!;
       payload = ld.last_payload!;
-      this.submitScore(level_idx, obj, payload, () => {
+      this.submitScore(level_idx, obj, payload, (err: string | null) => {
         ld.save_in_flight = false;
-        obj.submitted = true;
+        if (!err) {
+          obj.submitted = true;
+        }
         if (obj === ld.local_score) {
-          lsd[key] = JSON.stringify(obj);
+          if (!err) {
+            lsd[key] = JSON.stringify(obj);
+          }
         } else {
           // new score in the meantime
           ld.save_in_flight = true;

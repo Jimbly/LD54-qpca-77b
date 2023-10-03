@@ -16,9 +16,10 @@ Start with: `npm start` (after running `npm i` once)
 TODO:
 
 POLISH:
+* change high score payload to be something very tightly encoded (maybe add import/export buttons in this format?)
+  * also save payload in localstorage
 * move "best score so far" into score system
 * any better edit box stuff we can do for max lines?  can we change text and modify the cursor to constantly clamp?
-* change high score payload to be something very tightly encoded (maybe add import/export buttons in this format?)
 * merge changes back to GLOV.js
 * !breakpoint
 
