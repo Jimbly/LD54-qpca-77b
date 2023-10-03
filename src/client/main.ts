@@ -257,7 +257,7 @@ enum OP {
   JLZ = 'l',
   JEZ = 'e',
   JGZ = 'g',
-  JNZ = 'n',
+  JNZ = 'z',
 }
 type OpDef = {
   name: string;
@@ -291,12 +291,88 @@ const OPDEFS: Record<OP, OpDef> = (function () {
   }
   return ret as Record<OP, OpDef>;
 }());
+type Operand = string | number | null;
+const CHANNEL_REGEX = /^ch([1-9]\d*)$/;
 type CodeLine = {
   instr: OP;
-  p1: string | number | null;
-  p2: string | number | null;
+  p: [Operand, Operand];
   source_line: number;
 };
+const OPERAND_ENCODE: TSMap<string> = {
+  'nil': 'z',
+  'acc': 'a',
+  'input': 'i',
+  'output': 'o',
+};
+const OPERAND_DECODE = (function () {
+  let ret: TSMap<string | number> = {
+    Z: 0,
+  };
+  for (let key in OPERAND_ENCODE) {
+    ret[OPERAND_ENCODE[key]!] = key;
+  }
+  return ret;
+}());
+function codeLineEncode(op: CodeLine): string {
+  let opdef = OPDEFS[op.instr];
+  let ret: string[] = [op.instr];
+  for (let ii = 0; ii < opdef.params.length; ++ii) {
+    let v = op.p[ii];
+    assert(v !== null);
+    if (typeof v === 'number') {
+      if (!v) {
+        ret.push('Z');
+      } else if (v < 0) {
+        ret.push(`N${-v}`);
+      } else {
+        ret.push(`P${v}`);
+      }
+    } else if (OPERAND_ENCODE[v]) {
+      ret.push(OPERAND_ENCODE[v]!);
+    } else {
+      let m = v.match(CHANNEL_REGEX);
+      assert(m);
+      ret.push(`C${Number(m[1])}`);
+    }
+  }
+  return ret.join('');
+}
+function codeLineDecodeOperand(s1: string, s2?: string): string | number {
+  let register = OPERAND_DECODE[s1];
+  if (register !== undefined) {
+    assert(!s2);
+    return register;
+  }
+  assert(s2);
+  let n = Number(s2);
+  assert(isFinite(n));
+  if (s1 === 'N') {
+    return -n;
+  } else if (s1 === 'P') {
+    return n;
+  } else if (s1 === 'C') {
+    return `ch${n}`;
+  }
+  assert(false, `Failed to decode operand "${s1}:${s2}"`);
+}
+function codeLineDecode(str: string): CodeLine {
+  let instr: OP = str[0] as OP;
+  let p: [Operand, Operand] = [null, null];
+  let m = str.slice(1).match(/^(?:(\w)(\d+)?(?:(\w)(\d+)?)?)?$/);
+  assert(m);
+  if (m[1]) {
+    p[0] = codeLineDecodeOperand(m[1], m[2]);
+  }
+  if (m[3]) {
+    p[1] = codeLineDecodeOperand(m[3], m[4]);
+  }
+  return {
+    instr,
+    p,
+    source_line: -1,
+  };
+}
+
 const OKTOK = arrayToSet(['input', 'output', 'acc', 'nil']);
 function parseOp(toks: string[], source_line: number): CodeLine | string {
   if (toks[0] === 'nop') {
@@ -311,7 +387,7 @@ function parseOp(toks: string[], source_line: number): CodeLine | string {
   if (toks.length !== def.params.length + 1) {
     return `"${instr.toUpperCase()}" requires ${def.params.length} ${plural(def.params.length, 'parameter')}`;
   }
-  let p: (string | number | null)[] = [null, null];
+  let p: [Operand, Operand] = [null, null];
   for (let ii = 0; ii < def.params.length; ++ii) {
     let v = toks[ii + 1];
     let type = def.params[ii];
@@ -324,13 +400,13 @@ function parseOp(toks: string[], source_line: number): CodeLine | string {
     } else if (type === 'label') {
       p[ii] = v;
     } else if (type === 'channel') {
-      if (v.match(/^ch[1-9]\d*$/)) {
+      if (v.match(CHANNEL_REGEX)) {
         p[ii] = v;
       } else {
         return `Operand ${ii+1} must be a ${type}`;
       }
     } else { // number or register, and parameter is not a number, so must be a register
-      if (OKTOK[v] || v.match(/^ch[1-9]\d*$/)) {
+      if (OKTOK[v] || v.match(CHANNEL_REGEX)) {
         if (type === 'number' && v === 'nil') {
           p[ii] = 0;
         } else if (type === 'register' && v === 'input') {
@@ -347,8 +423,7 @@ function parseOp(toks: string[], source_line: number): CodeLine | string {
   }
   return {
     instr: def.op,
-    p1: p[0],
-    p2: p[1],
+    p,
     source_line,
   };
 }
@@ -458,16 +533,18 @@ class Node {
         labels[key] = 0;
       }
     }
-    // remap all labels to offsets
     for (let ii = 0; ii < op_lines.length; ++ii) {
       let op = op_lines[ii];
       let opdef = OPDEFS[op.instr];
       assert(opdef);
       for (let jj = 0; jj < opdef.params.length; ++jj) {
         if (opdef.params[jj] === 'label') {
-          let field: 'p1' | 'p2' = (jj === 0 ? 'p1' : 'p2');
-          let p = op[field];
-          if (typeof p === 'string' && !(p==='nil' || p.match(/^ch[1-9]\d*$/))) {
+          let p = op.p[jj];
+          if (p === 'nil') {
+            p = 0;
+          }
+          if (typeof p === 'string' && !p.match(CHANNEL_REGEX)) {
+            // remap all labels to offsets
             let oplinenum = labels[p];
             if (oplinenum === undefined) {
               if (!engine.defines.COMPO) { // COMPO version errors at runtime
@@ -476,13 +553,29 @@ class Node {
                   this.error_idx = op.source_line;
                 }
               }
+              p = op.p[jj] = 0;
             } else {
-              op[field] = oplinenum - op.source_line;
+              p = op.p[jj] = oplinenum - op.source_line;
             }
+          }
+          if (typeof p === 'number') {
+            // remap all jump offsets to positive
+            op.p[jj] = mod(p, op_lines.length);
           }
         }
       }
     }
+
+    // verify encoding is sound (after all fixups)
+    for (let ii = 0; ii < op_lines.length; ++ii) {
+      let op = op_lines[ii];
+      let str = codeLineEncode(op);
+      let test = codeLineDecode(str);
+      assert.equal(test.instr, op.instr);
+      assert.equal(test.p[0], op.p[0]);
+      assert.equal(test.p[1], op.p[1]);
+    }
+
   }
   stepError(msg: string): void {
     this.error_str = msg;
@@ -497,48 +590,50 @@ class Node {
     let op = op_lines[step_idx];
     // unless we jump, step_idx advances/loops
     let next_step_idx = (step_idx + 1) % op_lines.length;
-    let { instr, p1, p2 } = op;
-    let label = p1;
+    let { instr, p } = op;
+    let p0 = p[0];
+    let p1 = p[1];
+    let label_idx = 0;
     outer:
     switch (instr) {
       case OP.MOV: {
         let m;
         // Read input
         let v: number;
-        assert(typeof p2 === 'number' || typeof p2 === 'string');
-        if (typeof p2 === 'number') {
-          v = p2;
-        } else if (p2 === 'acc') {
+        assert(typeof p1 === 'number' || typeof p1 === 'string');
+        if (typeof p1 === 'number') {
+          v = p1;
+        } else if (p1 === 'acc') {
           v = this.acc;
-        } else if ((m = p2.match(/^ch(\d+)$/))) {
+        } else if ((m = p1.match(CHANNEL_REGEX))) {
           let radio_idx = Number(m[1]);
-          if (p1 === p2) {
+          if (p0 === p1) {
             return this.stepError('Cannot read and write the same channel');
           }
           if (active_radios.includes(radio_idx)) {
             return this.stepError('Cannot read from an active channel');
           }
           v = game_state.radios[radio_idx] || 0;
-        } else if (p2 === 'input') {
+        } else if (p1 === 'input') {
           v = game_state.readInput();
         } else {
           assert(false);
         }
         // Assign to output
-        assert(typeof p1 === 'string');
-        if (p1 === 'nil') {
+        assert(typeof p0 === 'string');
+        if (p0 === 'nil') {
           // nothing
-        } else if (p1 === 'acc') {
-          if (p2 !== 'acc') {
+        } else if (p0 === 'acc') {
+          if (p1 !== 'acc') {
             node_radio_activate_time[0] = engine.frame_timestamp;
           }
           this.acc = v;
-        } else if (p1 === 'output') {
+        } else if (p0 === 'output') {
           let err = game_state.addOutput(v);
           if (err) {
             return this.stepError(err);
           }
-        } else if ((m = p1.match(/^ch(\d+)$/))) {
+        } else if ((m = p0.match(CHANNEL_REGEX))) {
           let radio_idx = Number(m[1]);
           if (!active_radios.includes(radio_idx)) {
             if (!v) {
@@ -580,8 +675,8 @@ class Node {
       case OP.JEZ:
       case OP.JGZ:
       case OP.JNZ: {
-        assert(typeof p1 === 'string');
-        let m = p1.match(/^ch(\d+)$/);
+        assert(typeof p0 === 'string');
+        let m = p0.match(CHANNEL_REGEX);
         assert(m);
         let radio_idx = Number(m[1]);
         if (active_radios.includes(radio_idx)) {
@@ -612,15 +707,13 @@ class Node {
           default:
             assert(false);
         }
-        label = p2;
+        label_idx = 1;
       }
       // eslint-disable-next-line no-fallthrough
       case OP.JMP: {
         let m;
-        if (label === 'nil') {
-          label = 0;
-        }
-        if (typeof label === 'string' && (m = label.match(/^ch(\d+)$/))) {
+        let label = p[label_idx];
+        if (typeof label === 'string' && (m = label.match(CHANNEL_REGEX))) {
           let radio_idx = Number(m[1]);
           if (active_radios.includes(radio_idx)) {
             return this.stepError('Cannot read from an active channel');
