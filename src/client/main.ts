@@ -454,7 +454,7 @@ function parseOp(toks: string[], source_line: number): CodeLine | string {
 
 let last_node_uid = 0;
 class Node {
-  pos = [0,0];
+  slot = 0;
   uid = ++last_node_uid;
   code: string = '';
   radio_state!: Partial<Record<number, number>>;
@@ -469,13 +469,13 @@ class Node {
   }
   toJSON(): DataObject {
     return {
-      x: this.pos[0],
+      x: this.slot,
       type: this.type,
       code: this.code,
     };
   }
   fromJSON(obj: DataObject): void {
-    this.pos[0] = obj.x as number;
+    this.slot = obj.x as number;
     this.setCode(obj.code as string);
   }
   resetSim(): void {
@@ -1026,8 +1026,8 @@ class GameState {
   toEncoded(pretty: boolean): string {
     let { nodes } = this;
     return nodes.map((node) => {
-      let { pos, op_lines, node_type } = node;
-      let ret = [NODESTART, node_type.encode, pos[0]].join('');
+      let { slot, op_lines, node_type } = node;
+      let ret = [NODESTART, node_type.encode, slot].join('');
       if (pretty) {
         ret +='\n  ';
       }
@@ -1167,7 +1167,7 @@ function setStatePlay(): void {
     let puzzle = puzzles[game_state.puzzle_idx];
     while (game_state.nodes.length < puzzle.fixed_nodes!.length) {
       let node = new Node(puzzle.fixed_nodes![game_state.nodes.length]);
-      node.pos[0] = 0;
+      node.slot = 0;
       game_state.nodes.push(node);
     }
   }
@@ -1635,13 +1635,13 @@ function statePlay(dt: number): void {
   let remove_nodes = [];
   for (let ii = 0; ii < nodes.length; ++ii) {
     let node = nodes[ii];
-    let { acc, active_radios, radio_state, node_radio_activate_time, error_idx, error_str, step_idx } = node;
+    let { acc, active_radios, radio_state, node_radio_activate_time, error_idx, error_str, step_idx, slot } = node;
     let node_type = node_types[node.type];
-    let x = NODE_X[node.pos[0]];
+    let x = NODE_X[slot];
     let x1 = x + NODE_W - 1;
-    let y = node_y[node.pos[0]];
+    let y = node_y[slot];
     let y1 = y + node_type.h;
-    node_y[node.pos[0]] = y1 + 2;
+    node_y[slot] = y1 + 2;
     if (game_state.isEditing() && !tut) {
       if (button({
         x: x + NODE_W - CHH - 5,
@@ -1815,7 +1815,7 @@ function statePlay(dt: number): void {
             `${node_type.lines} LOC\n${node_type.radios} ${plural(node_type.radios, 'Radio')}`,
         })) {
           let node = new Node(key);
-          node.pos[0] = column;
+          node.slot = column;
           nodes.push(node);
           undoPush(true);
         }
@@ -1919,7 +1919,7 @@ JMP loop
 end:`);
     game_state.nodes.push(node1);
     let node2 = new Node('16x5');
-    node2.pos[0] = 0;
+    node2.slot = 0;
     node2.setCode(`MOV acc 0
 loop: NOP
 NOP
@@ -1939,7 +1939,7 @@ NOP`);
 
     let node3 = new Node('4x1');
     node3.setCode('MOV ch4 ch3');
-    node3.pos[0] = 2;
+    node3.slot = 2;
     game_state.nodes.push(node3);
   }
 
