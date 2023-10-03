@@ -41,6 +41,7 @@ import {
   HighScoreList,
   ScoreSystem,
   scoreAlloc,
+  scoreGetPlayerName,
 } from 'glov/client/score';
 import { scoresDraw } from 'glov/client/score_ui';
 import * as settings from 'glov/client/settings';
@@ -1197,10 +1198,14 @@ function winnerName(score: ScoreData, scores: HighScoreList<ScoreData> | null, f
     return '';
   }
   if (winner.score[field] === score[field]) {
-    return ' (TIED)';
-  } else {
-    return ` (${winner.name})`;
+    let nextbest = scores && scores[1];
+    if (nextbest && nextbest.score[field] === score[field] ||
+      winner.name !== scoreGetPlayerName()
+    ) {
+      return ' (TIED)';
+    }
   }
+  return ` (${winner.name})`;
 }
 
 let last_focus: string = '';
