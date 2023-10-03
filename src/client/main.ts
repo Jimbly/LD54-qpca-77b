@@ -367,7 +367,6 @@ class Node {
     }
   }
   op_lines: Op[] = [];
-  labels: TSMap<number> = {};
   setCode(code: string): void {
     this.error_idx = -1;
     this.error_str = null;
@@ -379,7 +378,7 @@ class Node {
       this.error_str = 'Too many lines';
       this.error_idx = node_type.lines - 1;
     }
-    let labels: TSMap<number> = this.labels = {};
+    let labels: TSMap<number> = {};
     let op_lines: Op[] = this.op_lines = [];
     for (let ii = 0; ii < lines.length; ++ii) {
       let line = lines[ii].toLowerCase();
@@ -429,21 +428,26 @@ class Node {
         labels[key] = 0;
       }
     }
-    if (!engine.defines.COMPO) {
-      for (let ii = 0; ii < op_lines.length; ++ii) {
-        let op = op_lines[ii];
-        let opdef = OPDEF[op.instr];
-        assert(opdef);
-        for (let jj = 0; jj < opdef.params.length; ++jj) {
-          if (opdef.params[jj] === 'label') {
-            let p = jj === 0 ? op.p1 : op.p2;
-            if (typeof p === 'string') {
-              if (labels[p] === undefined && !(p==='nil' || p.match(/^ch[1-9]\d*$/))) {
+    // remap all labels to offsets
+    for (let ii = 0; ii < op_lines.length; ++ii) {
+      let op = op_lines[ii];
+      let opdef = OPDEF[op.instr];
+      assert(opdef);
+      for (let jj = 0; jj < opdef.params.length; ++jj) {
+        if (opdef.params[jj] === 'label') {
+          let field: 'p1' | 'p2' = (jj === 0 ? 'p1' : 'p2');
+          let p = op[field];
+          if (typeof p === 'string' && !(p==='nil' || p.match(/^ch[1-9]\d*$/))) {
+            let oplinenum = labels[p];
+            if (oplinenum === undefined) {
+              if (!engine.defines.COMPO) { // COMPO version errors at runtime
                 if (!this.error_str) {
                   this.error_str = `Unknown label "${p}"`;
                   this.error_idx = op.source_line;
                 }
               }
+            } else {
+              op[field] = oplinenum - op.source_line;
             }
           }
         }
@@ -456,7 +460,7 @@ class Node {
     this.error_is_step = true;
   }
   step(game_state: GameState): void {
-    let { op_lines, step_idx, node_type, labels, active_radios, radio_state, node_radio_activate_time } = this;
+    let { op_lines, step_idx, node_type, active_radios, radio_state, node_radio_activate_time } = this;
     if (!op_lines.length) {
       return;
     }
@@ -597,11 +601,8 @@ class Node {
           next_step_idx = mod(step_idx + label, op_lines.length);
         } else {
           assert(typeof label === 'string');
-          let target = labels[label];
-          if (target === undefined) {
-            return this.stepError(`Unknown label "${label}"`);
-          }
-          next_step_idx = target;
+          assert(engine.defines.COMPO);
+          return this.stepError(`Unknown label "${label}"`);
         }
       } break;
       default:
