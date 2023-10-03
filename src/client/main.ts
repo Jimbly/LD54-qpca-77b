@@ -32,6 +32,7 @@ import {
 import {
   KEYS,
   eatAllInput,
+  mouseDownAnywhere,
 } from 'glov/client/input';
 import { link } from 'glov/client/link';
 import { localStorageGet, localStorageGetJSON, localStorageSet, localStorageSetJSON } from 'glov/client/local_storage';
@@ -2279,10 +2280,6 @@ function stateTitleInit(): void {
   title_anim.add(t + 500, 300, (progress) => {
     title_alpha.button = progress;
   });
-  if (engine.DEBUG) {
-    title_anim.update(Infinity);
-    title_anim = null;
-  }
 }
 const style_title = fontStyleColored(null, palette_font[5]);
 function stateTitle(dt: number): void {
@@ -2292,6 +2289,10 @@ function stateTitle(dt: number): void {
   let W = game_width;
   let H = game_height;
 
+  if (title_anim && (!engine.defines.COMPO && mouseDownAnywhere() || engine.DEBUG)) {
+    title_anim.update(Infinity);
+    title_anim = null;
+  }
   if (title_anim) {
     if (!title_anim.update(dt)) {
       title_anim = null;
