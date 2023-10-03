@@ -237,17 +237,32 @@ function queueTransition(): void {
 
 class NodeType {
   h: number;
-  constructor(public lines: number, public radios: number, public title: string, public cost: number) {
+  constructor(
+    public lines: number,
+    public radios: number,
+    public title: string,
+    public cost: number,
+    public encode:string
+  ) {
     this.h = (lines + 1) * CHH;
   }
 }
 let node_types: Record<string, NodeType> = {
-  '4x1': new NodeType(4, 1, 'AW0401', 7),
-  '9x3': new NodeType(9, 3, 'AW0903', 21),
-  '16x5': new NodeType(16, 5, 'AW1605', 42),
+  '4x1': new NodeType(4, 1, 'AW0401', 7, 'A'),
+  '9x3': new NodeType(9, 3, 'AW0903', 21, 'B'),
+  '16x5': new NodeType(16, 5, 'AW1605', 42,'C'),
 };
+const NODE_TYPE_DECODE = (function () {
+  let ret: TSMap<string> = {};
+  for (let key in node_types) {
+    assert(!ret[node_types[key].encode]);
+    ret[node_types[key].encode] = key;
+  }
+  return ret;
+}());
 const NUM_NODE_TYPES = Object.keys(node_types).length;
 
+const NODESTART = 'x';
 enum OP {
   MOV = 'm',
   DEC = 'd',
@@ -258,11 +273,13 @@ enum OP {
   JEZ = 'e',
   JGZ = 'g',
   JNZ = 'z',
+  // Also relevant for encoding/decoding: NODESTART = 'x'
 }
+type ParamType = 'channel' | 'register' | 'number' | 'label';
 type OpDef = {
   name: string;
   op: OP;
-  params: ('channel' | 'register' | 'number' | 'label')[];
+  params: ParamType[];
 };
 const OPDEFS1: Record<OP, Optional<OpDef, 'op'>> = {
   [OP.MOV]: { name: 'mov', params: ['register', 'number'] },
@@ -299,15 +316,14 @@ type CodeLine = {
   source_line: number;
 };
 const OPERAND_ENCODE: TSMap<string> = {
-  'nil': 'z',
-  'acc': 'a',
-  'input': 'i',
-  'output': 'o',
+  'nil': 'Z',
+  'acc': 'A',
+  'input': 'I',
+  'output': 'O',
+  // also : C/P/N for channel/positive/negative
 };
 const OPERAND_DECODE = (function () {
-  let ret: TSMap<string | number> = {
-    Z: 0,
-  };
+  let ret: TSMap<string | number> = {};
   for (let key in OPERAND_ENCODE) {
     ret[OPERAND_ENCODE[key]!] = key;
   }
@@ -337,10 +353,13 @@ function codeLineEncode(op: CodeLine): string {
   }
   return ret.join('');
 }
-function codeLineDecodeOperand(s1: string, s2?: string): string | number {
+function codeLineDecodeOperand(type: ParamType, s1: string, s2?: string): string | number {
   let register = OPERAND_DECODE[s1];
   if (register !== undefined) {
     assert(!s2);
+    if (register === 'nil' && type !== 'register') {
+      return 0;
+    }
     return register;
   }
   assert(s2);
@@ -355,17 +374,22 @@ function codeLineDecodeOperand(s1: string, s2?: string): string | number {
   }
   assert(false, `Failed to decode operand "${s1}:${s2}"`);
 }
-function codeLineDecode(str: string): CodeLine {
-  let instr: OP = str[0] as OP;
+type Cursor = { s: string; idx: number };
+function codeLineDecode(cursor: Cursor): CodeLine {
+  let instr: OP = cursor.s[cursor.idx++] as OP;
+  let opdef = OPDEFS[instr];
   let p: [Operand, Operand] = [null, null];
-  let m = str.slice(1).match(/^(?:(\w)(\d+)?(?:(\w)(\d+)?)?)?$/);
+  let m = cursor.s.slice(cursor.idx).match(/^(?:([A-Z])(\d+)?(?:([A-Z])(\d+)?)?)?/);
   assert(m);
   if (m[1]) {
-    p[0] = codeLineDecodeOperand(m[1], m[2]);
+    assert(opdef.params.length >= 1);
+    p[0] = codeLineDecodeOperand(opdef.params[0], m[1], m[2]);
   }
   if (m[3]) {
-    p[1] = codeLineDecodeOperand(m[3], m[4]);
+    assert(opdef.params.length >= 2);
+    p[1] = codeLineDecodeOperand(opdef.params[1], m[3], m[4]);
   }
+  cursor.idx += m[0].length;
   return {
     instr,
     p,
@@ -376,7 +400,7 @@ function codeLineDecode(str: string): CodeLine {
 const OKTOK = arrayToSet(['input', 'output', 'acc', 'nil']);
 function parseOp(toks: string[], source_line: number): CodeLine | string {
   if (toks[0] === 'nop') {
-    toks.splice(0, 1, 'mov', 'acc', 'acc');
+    toks.splice(0, 1, 'mov', 'nil', 'nil');
   }
   let instr = toks[0];
   assert(instr);
@@ -570,12 +594,13 @@ class Node {
     for (let ii = 0; ii < op_lines.length; ++ii) {
       let op = op_lines[ii];
       let str = codeLineEncode(op);
-      let test = codeLineDecode(str);
+      let cursor = { s: str, idx: 0 };
+      let test = codeLineDecode(cursor);
+      assert.equal(cursor.idx, str.length);
       assert.equal(test.instr, op.instr);
       assert.equal(test.p[0], op.p[0]);
       assert.equal(test.p[1], op.p[1]);
     }
-
   }
   stepError(msg: string): void {
     this.error_str = msg;
@@ -973,7 +998,7 @@ class GameState {
   }
   submitScore(): void {
     let score_data = this.score();
-    let payload = JSON.stringify(this);
+    let payload = this.toEncoded(false);
     score_systema.setScore(this.puzzle_idx, score_data, payload);
     score_systemb.setScore(this.puzzle_idx, score_data, payload);
     score_systemc.setScore(this.puzzle_idx, score_data, payload);
@@ -996,6 +1021,39 @@ class GameState {
       this.tick_counter = step_time;
     }
     this.tick_counter -= dt;
+  }
+
+  toEncoded(pretty: boolean): string {
+    let { nodes } = this;
+    return nodes.map((node) => {
+      let { pos, op_lines, node_type } = node;
+      let ret = [NODESTART, node_type.encode, pos[0]].join('');
+      if (pretty) {
+        ret +='\n  ';
+      }
+      ret += op_lines.map(codeLineEncode).join(pretty ? op_lines.length > 4 ? ' ' : '\n  ' : '');
+      return ret;
+    }).join(pretty ? '\n' : '');
+  }
+
+  fromEncoded(s: string): void {
+    let cursor = {
+      s,
+      idx: 0,
+    };
+    let nodes = this.nodes = [] as Node[];
+    while (cursor.idx < s.length) {
+      assert.equal(s[cursor.idx++], NODESTART);
+      let type = NODE_TYPE_DECODE[s[cursor.idx++]];
+      assert(type);
+      let node = new Node(type);
+      nodes.push(node);
+      let op_lines: CodeLine[] = [];
+      while (s[cursor.idx] !== NODESTART && cursor.idx < s.length) {
+        op_lines.push(codeLineDecode(cursor));
+      }
+      node.op_lines = op_lines;
+    }
   }
 }
 
@@ -1818,6 +1876,20 @@ function statePlay(dt: number): void {
     playUISound('button_click');
   }
   buttonText(param);
+
+  if (engine.defines.ENCODE) {
+    let encoded1 = game_state.toEncoded(true);
+    let encoded2 = game_state.toEncoded(false);
+    let encoded = `${encoded1}\n(${encoded2.length}b)`;
+    font.draw({
+      x: 0, y: 0, z: 1000,
+      w: game_width,
+      align: ALIGN.HWRAP,
+      text: encoded,
+    });
+    // test
+    new GameState().fromEncoded(encoded2);
+  }
 
 
   let focus_key = spotGetCurrentFocusKey();
