@@ -209,6 +209,9 @@ class ScoreSystemImpl<ScoreType> {
       url = `${score_host}/api/scoreset?key=${this.SCORE_KEY}.${level}&name=${player_name}` +
         `&score=${high_score}&payload="truncated"`;
     }
+    // if (payload.includes('ForceNetError')) {
+    //   url = 'http://errornow.dashingstrike.com/scoreset/error';
+    // }
     fetchJSON2(
       url,
       (err: string | undefined, scores: HighScoreListRaw) => {
@@ -281,7 +284,7 @@ class ScoreSystemImpl<ScoreType> {
     let ld = this.level_defs[level_idx];
     let encoded = this.score_to_value(score) || 0;
     let encoded_local = ld.local_score && this.score_to_value(ld.local_score) || 0;
-    if (encoded > encoded_local) {
+    if (encoded > encoded_local || encoded === encoded_local && !ld.local_score?.submitted) {
       this.saveScore(level_idx, score, payload);
     }
   }
