@@ -62,7 +62,7 @@ import {
   playUISound,
 } from 'glov/client/ui';
 import { getURLBase } from 'glov/client/urlhash';
-import { DataObject, TSMap } from 'glov/common/types';
+import { DataObject, Optional, TSMap } from 'glov/common/types';
 import {
   arrayToSet,
   clamp,
@@ -248,33 +248,63 @@ let node_types: Record<string, NodeType> = {
 };
 const NUM_NODE_TYPES = Object.keys(node_types).length;
 
+enum OP {
+  MOV = 'm',
+  DEC = 'd',
+  INC = 'i',
+  NEG = 'n',
+  JMP = 'j',
+  JLZ = 'l',
+  JEZ = 'e',
+  JGZ = 'g',
+  JNZ = 'n',
+}
 type OpDef = {
+  name: string;
+  op: OP;
   params: ('channel' | 'register' | 'number' | 'label')[];
 };
-const OPDEF: TSMap<OpDef> = {
-  mov: { params: ['register', 'number'] },
-  dec: { params: [] },
-  inc: { params: [] },
-  neg: { params: [] },
-  jmp: { params: ['label'] },
-  jlz: { params: ['channel', 'label'] },
-  jez: { params: ['channel', 'label'] },
-  jgz: { params: ['channel', 'label'] },
-  jnz: { params: ['channel', 'label'] },
-  //slp: { params: ['number'] },
-  nop: { params: [] },
+const OPDEFS1: Record<OP, Optional<OpDef, 'op'>> = {
+  [OP.MOV]: { name: 'mov', params: ['register', 'number'] },
+  [OP.DEC]: { name: 'dec', params: [] },
+  [OP.INC]: { name: 'inc', params: [] },
+  [OP.NEG]: { name: 'neg', params: [] },
+  [OP.JMP]: { name: 'jmp', params: ['label'] },
+  [OP.JLZ]: { name: 'jlz', params: ['channel', 'label'] },
+  [OP.JEZ]: { name: 'jez', params: ['channel', 'label'] },
+  [OP.JGZ]: { name: 'jgz', params: ['channel', 'label'] },
+  [OP.JNZ]: { name: 'jnz', params: ['channel', 'label'] },
 };
-type Op = {
-  instr: keyof typeof OPDEF;
+const OPDEFBYNAME: TSMap<OpDef> = {};
+const OPDEFS: Record<OP, OpDef> = (function () {
+  // build lookups, add op key
+  let ret: Partial<Record<OP, OpDef>> = {};
+  let key: keyof typeof OPDEFS1;
+  for (key in OPDEFS1) {
+    let opdef = OPDEFS1[key];
+    let opdef2 = {
+      ...opdef,
+      op: key,
+    };
+    ret[key] = opdef2;
+    OPDEFBYNAME[opdef.name] = opdef2;
+  }
+  return ret as Record<OP, OpDef>;
+}());
+type CodeLine = {
+  instr: OP;
   p1: string | number | null;
   p2: string | number | null;
   source_line: number;
 };
 const OKTOK = arrayToSet(['input', 'output', 'acc', 'nil']);
-function parseOp(toks: string[], source_line: number): Op | string {
+function parseOp(toks: string[], source_line: number): CodeLine | string {
+  if (toks[0] === 'nop') {
+    toks.splice(0, 1, 'mov', 'acc', 'acc');
+  }
   let instr = toks[0];
   assert(instr);
-  let def = OPDEF[instr];
+  let def = OPDEFBYNAME[instr];
   if (!def) {
     return `Unknown instruction "${instr}"`;
   }
@@ -316,7 +346,7 @@ function parseOp(toks: string[], source_line: number): Op | string {
     }
   }
   return {
-    instr,
+    instr: def.op,
     p1: p[0],
     p2: p[1],
     source_line,
@@ -366,7 +396,7 @@ class Node {
       this.error_str = null;
     }
   }
-  op_lines: Op[] = [];
+  op_lines: CodeLine[] = [];
   setCode(code: string): void {
     this.error_idx = -1;
     this.error_str = null;
@@ -379,7 +409,7 @@ class Node {
       this.error_idx = node_type.lines - 1;
     }
     let labels: TSMap<number> = {};
-    let op_lines: Op[] = this.op_lines = [];
+    let op_lines: CodeLine[] = this.op_lines = [];
     for (let ii = 0; ii < lines.length; ++ii) {
       let line = lines[ii].toLowerCase();
       line = line.replace(/,/g, ' ');
@@ -431,7 +461,7 @@ class Node {
     // remap all labels to offsets
     for (let ii = 0; ii < op_lines.length; ++ii) {
       let op = op_lines[ii];
-      let opdef = OPDEF[op.instr];
+      let opdef = OPDEFS[op.instr];
       assert(opdef);
       for (let jj = 0; jj < opdef.params.length; ++jj) {
         if (opdef.params[jj] === 'label') {
@@ -471,9 +501,7 @@ class Node {
     let label = p1;
     outer:
     switch (instr) {
-      case 'nop':
-        break;
-      case 'mov': {
+      case OP.MOV: {
         let m;
         // Read input
         let v: number;
@@ -501,7 +529,9 @@ class Node {
         if (p1 === 'nil') {
           // nothing
         } else if (p1 === 'acc') {
-          node_radio_activate_time[0] = engine.frame_timestamp;
+          if (p2 !== 'acc') {
+            node_radio_activate_time[0] = engine.frame_timestamp;
+          }
           this.acc = v;
         } else if (p1 === 'output') {
           let err = game_state.addOutput(v);
@@ -537,19 +567,19 @@ class Node {
           assert(false);
         }
       } break;
-      case 'dec':
+      case OP.DEC:
         this.acc = clamp(this.acc - 1, MININT, MAXINT);
         break;
-      case 'inc':
+      case OP.INC:
         this.acc = clamp(this.acc + 1, MININT, MAXINT);
         break;
-      case 'neg':
+      case OP.NEG:
         this.acc = clamp(-this.acc, MININT, MAXINT);
         break;
-      case 'jlz':
-      case 'jez':
-      case 'jgz':
-      case 'jnz': {
+      case OP.JLZ:
+      case OP.JEZ:
+      case OP.JGZ:
+      case OP.JNZ: {
         assert(typeof p1 === 'string');
         let m = p1.match(/^ch(\d+)$/);
         assert(m);
@@ -559,22 +589,22 @@ class Node {
         }
         let v = game_state.radios[radio_idx] || 0;
         switch (instr) {
-          case 'jlz':
+          case OP.JLZ:
             if (!(v < 0)) {
               break outer;
             }
             break;
-          case 'jez':
+          case OP.JEZ:
             if (!(v === 0)) {
               break outer;
             }
             break;
-          case 'jgz':
+          case OP.JGZ:
             if (!(v > 0)) {
               break outer;
             }
             break;
-          case 'jnz':
+          case OP.JNZ:
             if (!(v !== 0)) {
               break outer;
             }
@@ -585,7 +615,7 @@ class Node {
         label = p2;
       }
       // eslint-disable-next-line no-fallthrough
-      case 'jmp': {
+      case OP.JMP: {
         let m;
         if (label === 'nil') {
           label = 0;
