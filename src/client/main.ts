@@ -35,7 +35,7 @@ import {
   mouseDownAnywhere,
 } from 'glov/client/input';
 import { link } from 'glov/client/link';
-import { localStorageGet, localStorageGetJSON, localStorageSet, localStorageSetJSON } from 'glov/client/local_storage';
+import { localStorageGet, localStorageSet } from 'glov/client/local_storage';
 import * as net from 'glov/client/net';
 import {
   HighScoreList,
@@ -68,7 +68,6 @@ import { DataObject, Optional, TSMap } from 'glov/common/types';
 import {
   arrayToSet,
   clamp,
-  clone,
   lerp,
   mod,
   plural,
@@ -206,29 +205,19 @@ settings.register({
   },
 });
 
-let best_scores: TSMap<ScoreData | null> = {};
-function bestScoreForLevel(puzzle_id: string): ScoreData | null {
-  let record = best_scores[puzzle_id];
-  if (record === undefined) {
-    let key = `bs${puzzle_id}`;
-    record = best_scores[puzzle_id] = localStorageGetJSON(key) || null;
-  }
-  return record;
-}
-function bestScoreUpdate(puzzle_id: string, score: ScoreData): void {
-  let record = best_scores[puzzle_id];
-  let key = `bs${puzzle_id}`;
-  if (!record) {
-    record = best_scores[puzzle_id] = localStorageGetJSON(key);
-  }
-  if (!record) {
-    record = best_scores[puzzle_id] = score;
+function bestScoreForLevel(puzzle_idx: number): ScoreData | null {
+  let preva = score_systema.getScore(puzzle_idx);
+  let prevb = score_systemb.getScore(puzzle_idx);
+  let prevc = score_systemc.getScore(puzzle_idx);
+  if (preva || prevb || prevc) {
+    return {
+      loc: preva ? preva.loc : 0,
+      nodes: prevb ? prevb.nodes : 0,
+      cycles: prevc ? prevc.cycles : 0,
+    };
   } else {
-    record.nodes = min(record.nodes, score.nodes);
-    record.cycles = min(record.cycles, score.cycles);
-    record.loc = min(record.loc, score.loc);
+    return null;
   }
-  localStorageSetJSON(key, record);
 }
 
 function queueTransition(): void {
@@ -806,7 +795,6 @@ class GameState {
     this.elapsed_time_ff = 4000;
   }
   resetSim(): void {
-    prev_best = clone(bestScoreForLevel(puzzle_ids[this.puzzle_idx]));
     this.tick_idx = 0;
     this.set_idx = 0;
     this.fast_forward = false;
@@ -999,13 +987,13 @@ class GameState {
     };
   }
   submitScore(): void {
+    prev_best = bestScoreForLevel(this.puzzle_idx);
     let score_data = this.score();
     let payload = this.toEncoded(false);
     score_systema.setScore(this.puzzle_idx, score_data, payload);
     score_systemb.setScore(this.puzzle_idx, score_data, payload);
     score_systemc.setScore(this.puzzle_idx, score_data, payload);
     this.last_stats = score_data;
-    bestScoreUpdate(puzzle_ids[this.puzzle_idx], score_data);
   }
 
   tick(dt: number): void {
@@ -1068,7 +1056,7 @@ function tutorialMode(): boolean {
   if (!puzzle.fixed_nodes) {
     return false;
   }
-  let best_score = bestScoreForLevel(puzzle_ids[game_state.puzzle_idx]);
+  let best_score = bestScoreForLevel(game_state.puzzle_idx);
   return !best_score;
 }
 
@@ -1252,14 +1240,15 @@ function statePlay(dt: number): void {
       text: 'YOUR SCORE:',
     });
     y += CHH;
-    let extra = prev_best ? score.cycles < prev_best.cycles ? ' NEW BEST!' : ` (your best: ${prev_best.cycles})` : '';
+    let extra = prev_best && prev_best.cycles ?
+      score.cycles < prev_best.cycles ? ' NEW BEST!' : ` (your best: ${prev_best.cycles})` : '';
     let text_w = font.draw({
       color: palette_font[5],
       x, y, z, w,
       align: ALIGN.HCENTERFIT,
       text: `${score.cycles} Cycles${extra}`,
     });
-    if (prev_best) {
+    if (prev_best && extra) {
       font.draw({
         color: palette_font[score.cycles < prev_best.cycles ? 0 : score.cycles === prev_best.cycles ? 10 : 6],
         x: x + Math.round((w + text_w)/2), y, z: z + 1,
@@ -1269,14 +1258,15 @@ function statePlay(dt: number): void {
     }
     y += CHH;
 
-    extra = prev_best ? score.loc < prev_best.loc ? ' NEW BEST!' : ` (your best: ${prev_best.loc})` : '';
+    extra = prev_best && prev_best.loc ?
+      score.loc < prev_best.loc ? ' NEW BEST!' : ` (your best: ${prev_best.loc})` : '';
     text_w = font.draw({
       color: palette_font[5],
       x, y, z, w,
       align: ALIGN.HCENTERFIT,
       text: `${score.loc} Lines of code${extra}`,
     });
-    if (prev_best) {
+    if (prev_best && extra) {
       font.draw({
         color: palette_font[score.loc < prev_best.loc ? 0 : score.loc === prev_best.loc ? 10 : 6],
         x: x + Math.round((w + text_w)/2), y, z: z + 1,
@@ -1286,14 +1276,15 @@ function statePlay(dt: number): void {
     }
     y += CHH;
 
-    extra = prev_best ? score.nodes < prev_best.nodes ? ' NEW BEST!' : ` (your best: $${prev_best.nodes})` : '';
+    extra = prev_best && prev_best.nodes ?
+      score.nodes < prev_best.nodes ? ' NEW BEST!' : ` (your best: $${prev_best.nodes})` : '';
     text_w = font.draw({
       color: palette_font[5],
       x, y, z, w,
       align: ALIGN.HCENTERFIT,
       text: `$${score.nodes} Cost${extra}`,
     });
-    if (prev_best) {
+    if (prev_best && extra) {
       font.draw({
         color: palette_font[score.nodes < prev_best.nodes ? 0 : score.nodes === prev_best.nodes ? 10 : 6],
         x: x + Math.round((w + text_w)/2), y, z: z + 1,
@@ -2364,7 +2355,7 @@ function stateTitle(dt: number): void {
       h: button_h,
     };
 
-    if (!bestScoreForLevel(puzzle_ids[0])) {
+    if (!bestScoreForLevel(0)) {
       if (button({
         ...button_param,
         x: floor((game_width - button_w) / 2), y: y1,
@@ -2577,9 +2568,9 @@ export function main(): void {
 
   stateTitleInit();
   if (engine.DEBUG && true) {
-    // autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
+    autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
-    engine.setState(stateLevelSelect);
+    // engine.setState(stateLevelSelect);
   } else {
     engine.setState(stateTitle);
   }

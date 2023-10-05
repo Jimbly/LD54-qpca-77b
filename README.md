@@ -16,7 +16,6 @@ Start with: `npm start` (after running `npm i` once)
 TODO:
 
 POLISH:
-* move "best score so far" into score system
 * any better edit box stuff we can do for max lines?  can we change text and modify the cursor to constantly clamp?
 * merge changes back to GLOV.js
 * !breakpoint
