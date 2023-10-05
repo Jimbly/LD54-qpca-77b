@@ -1141,7 +1141,7 @@ let sprites: Record<string, Sprite> = {};
 function init(): void {
   [
     'play', 'pause', 'stop', 'menu', 'redo', 'undo', 'help', 'ff', 'step',
-    'sound1', 'sound2', 'sound0',
+    'sound1', 'sound2', 'sound0', 'discord',
   ].forEach(function (name) {
     name = `icon_${name}`;
     sprites[name] = spriteCreate({ name });
@@ -2044,6 +2044,19 @@ function stateLevelSelect(dt: number): void {
     score_systemc.prefetchScores(cur_level_idx + 1);
   }
 
+  if (button({
+    x: game_width - button_h - 4,
+    y,
+    w: button_h, h: button_h,
+    img: settings.sfx === 0 ? sprites.icon_sound0 : settings.sfx === 1 ? sprites.icon_sound1 : sprites.icon_sound2,
+    shrink: 1,
+    tooltip: settings.sfx === 0 ? 'SFX Off' : settings.sfx === 1 ? 'Mute beeps and bloops' : 'All SFX on',
+    sound_button: null,
+  })) {
+    settings.set('sfx', settings.sfx === 0 ? 2 : settings.sfx - 1);
+    playUISound('button_click');
+  }
+
   // y += (button_h - TITLE_H) / 2;
 
   font.draw({
@@ -2237,17 +2250,20 @@ function stateLevelSelect(dt: number): void {
     x += 8;
   }
 
-  if (button({
-    x: game_width - button_h * 4 - 4 - button_h - 4,
-    y,
-    w: button_h, h: button_h,
-    img: settings.sfx === 0 ? sprites.icon_sound0 : settings.sfx === 1 ? sprites.icon_sound1 : sprites.icon_sound2,
-    shrink: 1,
-    tooltip: settings.sfx === 0 ? 'SFX Off' : settings.sfx === 1 ? 'Mute beeps and bloops' : 'All SFX on',
-    sound_button: null,
-  })) {
-    settings.set('sfx', settings.sfx === 0 ? 2 : settings.sfx - 1);
-    playUISound('button_click');
+  if (!engine.defines.COMPO) {
+    let param = {
+      x: game_width - button_h * 4 - 4 - button_h - 4,
+      y,
+      w: button_h, h: button_h,
+      img: sprites.icon_discord,
+      shrink: 1,
+      tooltip: 'Visit the Dashing Strike Discord',
+      url: 'https://discord.gg/dashingstrike',
+    };
+    if (link(param)) {
+      playUISound('button_click');
+    }
+    button(param);
   }
 
   let param = {
@@ -2561,9 +2577,9 @@ export function main(): void {
 
   stateTitleInit();
   if (engine.DEBUG && true) {
-    autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
+    // autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
-    // engine.setState(stateLevelSelect);
+    engine.setState(stateLevelSelect);
   } else {
     engine.setState(stateTitle);
   }
