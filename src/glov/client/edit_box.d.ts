@@ -34,6 +34,7 @@ export interface EditBox extends Readonly<EditBoxOptsAll> {
   getText(): string;
   setText(new_text: string | number): void;
   isFocused(): boolean;
+  hadOverflow(): boolean;
 
   readonly SUBMIT: 'submit';
   readonly CANCEL: 'cancel';
@@ -45,4 +46,5 @@ export function editBoxCreate(params?: EditBoxOpts): EditBox;
 export function editBox<T extends string|number=string|number>(params: EditBoxOpts, current: T): {
   result: EditBoxResult;
   text: T;
+  edit_box: EditBox;
 };

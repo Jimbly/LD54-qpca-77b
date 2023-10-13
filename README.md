@@ -16,8 +16,7 @@ Start with: `npm start` (after running `npm i` once)
 TODO:
 
 POLISH:
-* better handle pasting code that overflows somehow?
-* PC speaker beep upon invalid input
+* Try completely hiding edit box and drawing our own - fixes alignment issues?
 * merge changes back to GLOV.js
 * !breakpoint
 

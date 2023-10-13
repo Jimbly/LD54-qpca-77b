@@ -120,6 +120,7 @@ class GlovUIEditBox {
       sel_start: 0,
       sel_end: 0,
     };
+    this.had_overflow = false;
   }
   applyParams(params) {
     if (!params) {
@@ -200,6 +201,7 @@ class GlovUIEditBox {
     }
     if (!valid) {
       // revert!
+      this.had_overflow = true;
       input.value = this.text;
       input.selectionStart = this.last_valid_state.sel_start;
       input.selectionEnd = this.last_valid_state.sel_end;
@@ -211,6 +213,11 @@ class GlovUIEditBox {
   }
   getText() {
     return this.text;
+  }
+  hadOverflow() {
+    let ret = this.had_overflow;
+    this.had_overflow = false;
+    return ret;
   }
   setText(new_text) {
     new_text = String(new_text);

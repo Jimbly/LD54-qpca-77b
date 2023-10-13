@@ -1699,6 +1699,9 @@ function statePlay(dt: number): void {
         node.setCode(ebr.text);
         // undoPush(false);
       }
+      if (ebr.edit_box.hadOverflow() && !engine.defines.COMPO) {
+        playUISound('kbbeep');
+      }
     } else {
       font.draw({
         color: palette_font[5],
@@ -2454,6 +2457,7 @@ export function main(): void {
   ui.uiBindSounds({
     button_click: ['click1', 'click2', 'click3', 'click4', 'click5', 'click6'],
     error: 'error',
+    kbbeep: { file: 'kbbeep', volume: 0.2 },
     victory: 'victory',
     outgood: { file: 'outgood', volume: 0.3 },
     outbad: { file: 'outbad', volume: 0.5 },
