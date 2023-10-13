@@ -16,7 +16,8 @@ Start with: `npm start` (after running `npm i` once)
 TODO:
 
 POLISH:
-* any better edit box stuff we can do for max lines?  can we change text and modify the cursor to constantly clamp?
+* better handle pasting code that overflows somehow?
+* PC speaker beep upon invalid input
 * merge changes back to GLOV.js
 * !breakpoint
 

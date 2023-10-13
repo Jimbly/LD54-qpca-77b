@@ -4,6 +4,7 @@
 exports.create = editBoxCreate; // eslint-disable-line @typescript-eslint/no-use-before-define
 
 const assert = require('assert');
+const { trimEnd } = require('glov/common/util.js');
 const verify = require('glov/common/verify.js');
 const camera2d = require('./camera2d.js');
 const engine = require('./engine.js');
@@ -114,6 +115,11 @@ class GlovUIEditBox {
     this.pointer_lock = false;
     this.last_frame = 0;
     this.out = {}; // Used by spotFocusCheck
+    this.last_valid_state = {
+      // text: '', just use this.text!
+      sel_start: 0,
+      sel_end: 0,
+    };
   }
   applyParams(params) {
     if (!params) {
@@ -129,16 +135,78 @@ class GlovUIEditBox {
     this.h = this.font_height;
   }
   updateText() {
-    let old_text = this.text = this.input.value;
-    if (this.max_len > 0) {
-      if (this.multiline) {
-        this.text = this.text.split('\n').map((line) => line.slice(0, this.max_len)).join('\n');
+    const { input } = this;
+    let new_text = input.value;
+    if (new_text === this.text) {
+      this.last_valid_state.sel_start = input.selectionStart;
+      this.last_valid_state.sel_end = input.selectionEnd;
+      return;
+    }
+    const { multiline, max_len } = this;
+    // text has changed, validate
+    let valid = true;
+
+    if (multiline && new_text.split('\n').length > multiline) {
+      // If trimming would help, trim the text, and update, preserving current selection
+      // Otherwise, will revert to last good state
+      // does trimming help?
+      if (trimEnd(new_text).split('\n').length <= multiline) {
+        while (new_text.split('\n').length > multiline) {
+          if (new_text[new_text.length-1].match(/\s/)) {
+            new_text = new_text.slice(0, -1);
+          }
+        }
+        let sel_start = input.selectionStart;
+        let sel_end = input.selectionEnd;
+        input.value = new_text;
+        input.selectionStart = sel_start;
+        input.selectionEnd = sel_end;
       } else {
-        this.text = this.text.slice(0, this.max_len);
+        valid = false;
       }
     }
-    if (old_text !== this.text) {
-      // this.input.value = this.text;
+
+    if (max_len > 0) {
+      let lines = multiline ? new_text.split('\n') : [new_text];
+      for (let ii = 0; ii < lines.length; ++ii) {
+        let line = lines[ii];
+        if (line.length > max_len) {
+          if (trimEnd(line).length <= max_len) {
+            let old_line_end_pos = lines.slice(0, ii+1).join('\n').length;
+            lines[ii] = trimEnd(line);
+            let new_line_end_pos = lines.slice(0, ii+1).join('\n').length;
+            new_text = lines.join('\n');
+            let sel_start = input.selectionStart;
+            let sel_end = input.selectionEnd;
+            let shift = old_line_end_pos - new_line_end_pos;
+            if (sel_start > old_line_end_pos) {
+              sel_start -= shift;
+            } else if (sel_start > new_line_end_pos) {
+              sel_start = new_line_end_pos;
+            }
+            if (sel_end >= old_line_end_pos) {
+              sel_end -= shift;
+            } else if (sel_end > new_line_end_pos) {
+              sel_end = new_line_end_pos;
+            }
+            input.value = new_text;
+            input.selectionStart = sel_start;
+            input.selectionEnd = sel_end;
+          } else {
+            valid = false;
+          }
+        }
+      }
+    }
+    if (!valid) {
+      // revert!
+      input.value = this.text;
+      input.selectionStart = this.last_valid_state.sel_start;
+      input.selectionEnd = this.last_valid_state.sel_end;
+    } else {
+      this.text = new_text;
+      this.last_valid_state.sel_start = input.selectionStart;
+      this.last_valid_state.sel_end = input.selectionEnd;
     }
   }
   getText() {
@@ -146,7 +214,7 @@ class GlovUIEditBox {
   }
   setText(new_text) {
     new_text = String(new_text);
-    if (this.input) {
+    if (this.input && this.input.value !== new_text) {
       this.input.value = new_text;
     }
     this.text = new_text;
@@ -296,20 +364,15 @@ class GlovUIEditBox {
           input.select();
         }
 
-        if (this.multiline) {
+        if (this.multiline || this.max_len) {
+          // Do update _immediately_ so the DOM doesn't draw the invalid text, if possible
           const onChange = (e) => {
-            if (this.multiline) {
-              let new_lines = input.value.split('\n').length;
-              if (e.keyCode === 13 && new_lines >= this.multiline) {
-                e.preventDefault();
-                return false;
-              }
-            }
+            this.updateText();
             return true;
           };
           input.addEventListener('keyup', onChange);
           input.addEventListener('keydown', onChange);
-          // input.addEventListener('change', onChange);
+          input.addEventListener('change', onChange);
         }
 
       } else {
