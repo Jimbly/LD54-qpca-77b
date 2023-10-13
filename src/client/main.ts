@@ -1523,8 +1523,8 @@ function statePlay(dt: number): void {
       img: sprites.icon_menu,
       shrink: 1,
       tooltip: game_state.isSimulating() ?
-        'Stop, save, and return to exercise select' :
-        'Save and return to exercise select',
+        '[ESC] Stop, save, and return to exercise select' :
+        '[ESC] Save and return to exercise select',
       hotkey: KEYS.ESC,
       sound_button: 'eject',
     })) {
@@ -1689,6 +1689,8 @@ function statePlay(dt: number): void {
         font_height: CHH,
         text: node.code,
         multiline: node_type.lines,
+        esc_clears: false,
+        esc_unfocuses: false,
         max_len: CODE_LINE_W,
         spellcheck: false,
         initial_focus: true,
@@ -2441,6 +2443,7 @@ export function main(): void {
   ui.setFontHeight(16);
   ui.setPanelPixelScale(1);
   ui.uiSetPanelColor([1,1,1,1]);
+  ui.setTooltipWidth(200,1);
   ui.setFontStyles(
     fontStyle(null, { color: palette_font[5] }),
     null,
