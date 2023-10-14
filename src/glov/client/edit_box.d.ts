@@ -35,6 +35,7 @@ export interface EditBox extends Readonly<EditBoxOptsAll> {
   setText(new_text: string | number): void;
   isFocused(): boolean;
   hadOverflow(): boolean;
+  getSelection(): [[number, number], [number, number]]; // [column, row], [column, row]
 
   readonly SUBMIT: 'submit';
   readonly CANCEL: 'cancel';

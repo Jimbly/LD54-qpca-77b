@@ -16,7 +16,8 @@ Start with: `npm start` (after running `npm i` once)
 TODO:
 
 POLISH:
-* Try completely hiding edit box and drawing our own - fixes alignment issues?
+* move custom edit box rendering into edit_box.ts as an option
+  * probably need to deal with font scaling issues
 * merge changes back to GLOV.js
 * !breakpoint
 

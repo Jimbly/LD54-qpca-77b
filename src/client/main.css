@@ -141,11 +141,17 @@ canvas {
   resize: none;
   background: rgba(1,1,1,0);
   border: none;
-  color: #e1ccad;
   outline: none;
-  --overflow: hidden;
-  overflow-x: hidden;
+  overflow: hidden;
   text-wrap: nowrap;
+
+  --color: #e1ccad;
+  color: rgba(0,0,0,0);
+  --caret-color: #e1ccad;
+  caret-color: rgba(0,0,0,0);
+}
+.glovui_dynamic textarea::selection {
+  color: rgba(0,0,0,0);
 }
 
 .glovui_link {

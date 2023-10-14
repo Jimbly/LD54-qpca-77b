@@ -4,7 +4,10 @@
 exports.create = editBoxCreate; // eslint-disable-line @typescript-eslint/no-use-before-define
 
 const assert = require('assert');
-const { trimEnd } = require('glov/common/util.js');
+const {
+  clamp,
+  trimEnd,
+} = require('glov/common/util.js');
 const verify = require('glov/common/verify.js');
 const camera2d = require('./camera2d.js');
 const engine = require('./engine.js');
@@ -75,6 +78,24 @@ function formHook(ev) {
   }
 }
 
+function charIdxToXY(text, offset) {
+  offset = clamp(offset, 0, text.length); // IE returns selectionStart/end out of bounds
+  let lines = text.split('\n');
+  let linenum = 0;
+  while (linenum < lines.length) {
+    let line = lines[linenum];
+    if (offset <= line.length) {
+      return [offset, linenum];
+    }
+    offset -= line.length;
+    assert(offset > 0);
+    offset--; // newline
+    linenum++;
+  }
+  verify(false);
+  return [0, linenum];
+}
+
 let last_key_id = 0;
 
 class GlovUIEditBox {
@@ -134,6 +155,9 @@ class GlovUIEditBox {
       this.text = '';
     }
     this.h = this.font_height;
+  }
+  getSelection() {
+    return [charIdxToXY(this.text, this.input.selectionStart), charIdxToXY(this.text, this.input.selectionEnd)];
   }
   updateText() {
     const { input } = this;

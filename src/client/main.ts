@@ -74,6 +74,7 @@ import {
 } from 'glov/common/util';
 import {
   Vec4,
+  v2same,
   v4copy,
   vec4,
 } from 'glov/common/vmath';
@@ -235,7 +236,7 @@ class NodeType {
     public cost: number,
     public encode:string
   ) {
-    this.h = (lines + 1) * CHH;
+    this.h = (lines + 1) * CHH + (engine.defines.COMPO ? 0 : 2);
   }
 }
 let node_types: Record<string, NodeType> = {
@@ -1677,7 +1678,10 @@ function statePlay(dt: number): void {
       text: `${node_type.title} ($${node_type.cost})`,
       align: ALIGN.HCENTER,
     });
-    y += CHH;
+    y += CHH - 1;
+    if (engine.defines.COMPO) {
+      y++; // old, worse, spacing
+    }
     x += 4;
     if (game_state.isEditing()) {
       let last_code = node.code;
@@ -1702,20 +1706,42 @@ function statePlay(dt: number): void {
       if (ebr.edit_box.hadOverflow() && !engine.defines.COMPO) {
         playUISound('kbbeep');
       }
-    } else {
-      font.draw({
-        color: palette_font[5],
-        x, y, z: Z.NODES + 1,
-        w: CODE_LINE_W * CHW,
-        align: ALIGN.HFIT|ALIGN.HWRAP,
-        text: node.code,
-      });
+      if (ebr.edit_box.isFocused()) {
+        // draw selection
+        let selection = ebr.edit_box.getSelection();
+        if (!v2same(selection[0], selection[1])) {
+          let first_row = selection[0][1];
+          let last_row = selection[1][1];
+          let lines = node.code.split('\n');
+          for (let jj = first_row; jj <= last_row; ++jj) {
+            let line = lines[jj];
+            let selx0 = jj === first_row ? selection[0][0] : 0;
+            let selx1 = jj === last_row ? selection[1][0] : line.length;
+            drawRect(x + CHW*selx0-1, y + jj * CHH,
+              x + CHW*selx1, y + (jj + 1) * CHH, Z.NODES+0.75, palette[0]);
+          }
+        } else {
+          // draw caret
+          let caret_x = x + CHW*selection[1][0] - 1;
+          drawLine(caret_x, y + CHH*selection[1][1],
+            caret_x, y + CHH*(selection[1][1] + 1) - 1, Z.NODES + 1.5, 1, 1, palette[5]);
+        }
+      }
+    }
+    font.draw({
+      color: palette_font[5],
+      x, y, z: Z.NODES + 1,
+      w: CODE_LINE_W * CHW,
+      align: ALIGN.HFIT|ALIGN.HWRAP,
+      text: node.code,
+    });
+    if (!game_state.isEditing()) {
       let draw_idx = node.op_lines[step_idx]?.source_line || 0;
       drawRect(x-1, y + draw_idx * CHH, x + CODE_LINE_W*CHW+2, y + (draw_idx + 1) * CHH - 1, Z.NODES+0.25, palette[0]);
     }
     if (error_idx !== -1) {
-      drawRect(x-1, y + error_idx * CHH - 2,
-        x + CODE_LINE_W*CHW+2, y + (error_idx + 1) * CHH - 2, Z.NODES+0.5, palette[6]);
+      drawRect(x-1, y + error_idx * CHH,
+        x + CODE_LINE_W*CHW+2, y + (error_idx + 1) * CHH, Z.NODES+0.5, palette[6]);
       let error_y = y1 - 1;
       let h = font.draw({
         color: palette_font[4],
