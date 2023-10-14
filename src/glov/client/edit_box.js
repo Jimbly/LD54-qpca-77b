@@ -37,6 +37,7 @@ import {
   drawRect,
   getUIElemData,
   uiGetDOMElem,
+  uiGetDOMTabIndex,
   uiTextHeight,
 } from './ui';
 
@@ -145,6 +146,7 @@ class GlovUIEditBox {
       sel_start: 0,
       sel_end: 0,
     };
+    this.last_tab_index = -1;
     this.had_overflow = false;
   }
   applyParams(params) {
@@ -393,10 +395,8 @@ class GlovUIEditBox {
         if (multiline) {
           input.setAttribute('rows', multiline);
         }
-        input.setAttribute('tabindex', 2);
         elem.appendChild(input);
         let span = document.createElement('span');
-        span.setAttribute('tabindex', 3);
         this.postspan = span;
         elem.appendChild(span);
         input.value = this.text;
@@ -468,6 +468,14 @@ class GlovUIEditBox {
       if (this.last_autocomplete !== this.autocomplete) {
         this.last_autocomplete = this.autocomplete;
         this.input.setAttribute('autocomplete', this.autocomplete || `auto_off_${Math.random()}`);
+      }
+
+      let tab_index1 = uiGetDOMTabIndex();
+      let tab_index2 = uiGetDOMTabIndex();
+      if (tab_index1 !== this.last_tab_index) {
+        this.last_tab_index = tab_index1;
+        this.input.setAttribute('tabindex', tab_index1);
+        this.postspan.setAttribute('tabindex', tab_index2);
       }
     }
 
