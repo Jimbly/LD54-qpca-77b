@@ -477,6 +477,8 @@ class GlovUIEditBox {
         this.input.setAttribute('tabindex', tab_index1);
         this.postspan.setAttribute('tabindex', tab_index2);
       }
+    } else {
+      this.last_tab_index = -1;
     }
 
     if (focused) {
