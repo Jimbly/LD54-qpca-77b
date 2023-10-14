@@ -74,7 +74,6 @@ import {
 } from 'glov/common/util';
 import {
   Vec4,
-  v2same,
   v4copy,
   vec4,
 } from 'glov/common/vmath';
@@ -1631,8 +1630,8 @@ function statePlay(dt: number): void {
   let node_y = [NODE_Y, NODE_Y, NODE_Y];
 
   let remove_nodes = [];
-  for (let ii = 0; ii < nodes.length; ++ii) {
-    let node = nodes[ii];
+  for (let node_idx = 0; node_idx < nodes.length; ++node_idx) {
+    let node = nodes[node_idx];
     let { acc, active_radios, radio_state, node_radio_activate_time, error_idx, error_str, step_idx, slot } = node;
     let node_type = node_types[node.type];
     let x = NODE_X[slot];
@@ -1651,7 +1650,7 @@ function statePlay(dt: number): void {
         no_bg: true,
         // tooltip: 'Delete node', - not over DOM
       })) {
-        remove_nodes.push(ii);
+        remove_nodes.push(node_idx);
       }
       if (buttonWasFocused()) {
         sprites.x_focused.draw({
@@ -1698,6 +1697,13 @@ function statePlay(dt: number): void {
         max_len: CODE_LINE_W,
         spellcheck: false,
         initial_focus: true,
+        canvas_render: {
+          char_width: CHW,
+          char_height: CHH,
+          color_selection: palette[0],
+          color_caret: palette[5],
+          style_text: fontStyleColored(null, palette_font[5]),
+        },
       }, node.code);
       if (ebr.text !== last_code) {
         node.setCode(ebr.text);
@@ -1706,35 +1712,15 @@ function statePlay(dt: number): void {
       if (ebr.edit_box.hadOverflow() && !engine.defines.COMPO) {
         playUISound('kbbeep');
       }
-      if (ebr.edit_box.isFocused()) {
-        // draw selection
-        let selection = ebr.edit_box.getSelection();
-        if (!v2same(selection[0], selection[1])) {
-          let first_row = selection[0][1];
-          let last_row = selection[1][1];
-          let lines = node.code.split('\n');
-          for (let jj = first_row; jj <= last_row; ++jj) {
-            let line = lines[jj];
-            let selx0 = jj === first_row ? selection[0][0] : 0;
-            let selx1 = jj === last_row ? selection[1][0] : line.length;
-            drawRect(x + CHW*selx0-1, y + jj * CHH,
-              x + CHW*selx1, y + (jj + 1) * CHH, Z.NODES+0.75, palette[0]);
-          }
-        } else {
-          // draw caret
-          let caret_x = x + CHW*selection[1][0] - 1;
-          drawLine(caret_x, y + CHH*selection[1][1],
-            caret_x, y + CHH*(selection[1][1] + 1) - 1, Z.NODES + 1.5, 1, 1, palette[5]);
-        }
-      }
+    } else {
+      font.draw({
+        color: palette_font[5],
+        x, y, z: Z.NODES + 1,
+        w: CODE_LINE_W * CHW,
+        align: ALIGN.HFIT|ALIGN.HWRAP,
+        text: node.code,
+      });
     }
-    font.draw({
-      color: palette_font[5],
-      x, y, z: Z.NODES + 1,
-      w: CODE_LINE_W * CHW,
-      align: ALIGN.HFIT|ALIGN.HWRAP,
-      text: node.code,
-    });
     if (!game_state.isEditing()) {
       let draw_idx = node.op_lines[step_idx]?.source_line || 0;
       drawRect(x-1, y + draw_idx * CHH, x + CODE_LINE_W*CHW+2, y + (draw_idx + 1) * CHH - 1, Z.NODES+0.25, palette[0]);

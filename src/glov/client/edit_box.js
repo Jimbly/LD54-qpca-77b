@@ -3,39 +3,42 @@
 
 exports.create = editBoxCreate; // eslint-disable-line @typescript-eslint/no-use-before-define
 
-const assert = require('assert');
-const {
+import assert from 'assert';
+import {
   clamp,
   trimEnd,
-} = require('glov/common/util.js');
-const verify = require('glov/common/verify.js');
-const camera2d = require('./camera2d.js');
-const engine = require('./engine.js');
-const {
+} from 'glov/common/util';
+import * as verify from 'glov/common/verify';
+import { v2same } from 'glov/common/vmath';
+import * as camera2d from './camera2d';
+import * as engine from './engine';
+import {
   KEYS,
   eatAllKeyboardInput,
-  mouseConsumeClicks,
+  inputClick,
   keyDownEdge,
   keyUpEdge,
+  mouseConsumeClicks,
   pointerLockEnter,
   pointerLockExit,
   pointerLocked,
-  inputClick,
-} = require('./input.js');
-const { getStringIfLocalizable } = require('./localization.js');
-const {
+} from './input';
+import { getStringIfLocalizable } from './localization';
+import {
   spotFocusCheck,
   spotFocusSteal,
+  spotSuppressKBNav,
   spotUnfocus,
   spotlog,
-  spotSuppressKBNav,
-} = require('./spot.js');
-const glov_ui = require('./ui.js');
-const {
+} from './spot';
+import * as glov_ui from './ui';
+import {
+  drawLine,
+  drawRect,
   getUIElemData,
   uiGetDOMElem,
   uiTextHeight,
-} = require('./ui.js');
+} from './ui';
 
 let form_hook_registered = false;
 let active_edit_box;
@@ -125,6 +128,7 @@ class GlovUIEditBox {
     this.suppress_up_down = false;
     this.autocomplete = false;
     this.sticky_focus = true;
+    this.canvas_render = null;
     this.applyParams(params);
     assert.equal(typeof this.text, 'string');
 
@@ -325,6 +329,12 @@ class GlovUIEditBox {
 
   run(params) {
     this.applyParams(params);
+    const {
+      canvas_render,
+      font_height,
+      multiline,
+      max_len,
+    } = this;
     if (this.focus_steal) {
       this.focus_steal = false;
       this.focus();
@@ -346,7 +356,7 @@ class GlovUIEditBox {
     let { allow_focus, focused } = this.updateFocus(is_reset);
 
     if (focused) {
-      spotSuppressKBNav(true, Boolean(this.multiline || this.suppress_up_down));
+      spotSuppressKBNav(true, Boolean(multiline || this.suppress_up_down));
     }
 
     this_frame_edit_boxes.push(this);
@@ -362,18 +372,26 @@ class GlovUIEditBox {
           }
         }
         elem.textContent = '';
-        let input = document.createElement(this.multiline ? 'textarea' : 'input');
+        let input = document.createElement(multiline ? 'textarea' : 'input');
+        let classes = [];
+        if (canvas_render) {
+          classes.push('canvas_render');
+        }
+        if (multiline && max_len) {
+          classes.push('fixed');
+        }
+        input.className = classes.join(' ');
         input.setAttribute('type', this.type);
         input.setAttribute('placeholder', getStringIfLocalizable(this.placeholder));
-        if (this.max_len) {
-          if (this.multiline) {
-            input.setAttribute('cols', this.max_len);
+        if (max_len) {
+          if (multiline) {
+            input.setAttribute('cols', max_len);
           } else {
-            input.setAttribute('maxLength', this.max_len);
+            input.setAttribute('maxLength', max_len);
           }
         }
-        if (this.multiline) {
-          input.setAttribute('rows', this.multiline);
+        if (multiline) {
+          input.setAttribute('rows', multiline);
         }
         input.setAttribute('tabindex', 2);
         elem.appendChild(input);
@@ -395,7 +413,7 @@ class GlovUIEditBox {
           input.select();
         }
 
-        if (this.multiline || this.max_len) {
+        if (multiline || max_len) {
           // Do update _immediately_ so the DOM doesn't draw the invalid text, if possible
           const onChange = (e) => {
             this.updateText();
@@ -428,11 +446,11 @@ class GlovUIEditBox {
       elem.style.width = `${size[0]}%`;
       let old_fontsize = elem.style.fontSize || '?px';
 
-      let new_fontsize = `${camera2d.virtualToFontSize(this.font_height).toFixed(8)}px`;
+      let new_fontsize = `${camera2d.virtualToFontSize(font_height).toFixed(8)}px`;
       if (new_fontsize !== old_fontsize) {
         // elem.style.fontSize = new_fontsize;
         // Try slightly better smooth scaling from https://medium.com/autodesk-tlv/smooth-text-scaling-in-javascript-css-a817ae8cc4c9
-        const preciseFontSize = camera2d.virtualToFontSize(this.font_height);  // Desired font size
+        const preciseFontSize = camera2d.virtualToFontSize(font_height);  // Desired font size
         const roundedSize = Math.floor(preciseFontSize);
         const s = preciseFontSize / roundedSize; // Remaining scale
         elem.style.fontSize = `${roundedSize}px`;
@@ -466,8 +484,46 @@ class GlovUIEditBox {
       // keyboard input is handled by the INPUT element, but allow mouse events to trickle
       eatAllKeyboardInput();
     }
+    const { text, x, y, z, w, h } = this;
     // Eat mouse events going to the edit box
-    mouseConsumeClicks({ x: this.x, y: this.y, w: this.w, h: this.h });
+    mouseConsumeClicks({ x, y, w, h });
+
+    if (canvas_render) {
+      const { char_width, char_height, color_selection, color_caret, style_text } = canvas_render;
+      let font = glov_ui.font;
+      let lines = text.split('\n');
+      if (focused) {
+        // draw selection
+        let selection = this.getSelection();
+        if (!v2same(selection[0], selection[1])) {
+          let first_row = selection[0][1];
+          let last_row = selection[1][1];
+          for (let jj = first_row; jj <= last_row; ++jj) {
+            let line = lines[jj];
+            let selx0 = jj === first_row ? selection[0][0] : 0;
+            let selx1 = jj === last_row ? selection[1][0] : line.length;
+            drawRect(x + char_width*selx0-1, y + jj * char_height,
+              x + char_width*selx1, y + (jj + 1) * char_height, z + 0.75, color_selection);
+          }
+        } else {
+          // draw caret
+          let caret_x = x + char_width*selection[1][0] - 1;
+          drawLine(caret_x, y + char_height*selection[1][1],
+            caret_x, y + char_height*(selection[1][1] + 1) - 1, z + 0.5, 1, 1, color_caret);
+        }
+      }
+      // draw text
+      // TODO: maybe apply clipper here?  caller necessarily needs to set max_len and multiline appropriately, though.
+      for (let ii = 0; ii < lines.length; ++ii) {
+        let line = lines[ii];
+        font.draw({
+          style: style_text,
+          height: font_height,
+          x, y: y + ii * char_height, z,
+          text: line,
+        });
+      }
+    }
 
     if (this.submitted) {
       this.submitted = false;
