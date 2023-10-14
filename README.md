@@ -16,7 +16,6 @@ Start with: `npm start` (after running `npm i` once)
 TODO:
 
 POLISH:
-* merge changes back to GLOV.js - probably need to deal with font scaling issues
 * !breakpoint
 
 Plan: TIS-100-like
