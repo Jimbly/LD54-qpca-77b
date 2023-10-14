@@ -30,7 +30,7 @@ export interface EditBoxOptsAll {
   // custom_nav: Partial<Record<number, null>>;
   canvas_render: null | {
     // if set, will do custom canvas rendering instead of DOM rendering
-    // requires a fixed-width font and near-perfectly aligned font rendering (tweak engine values)
+    // requires a fixed-width font and near-perfectly aligned font rendering (tweak setDOMFontPixelScale)
     char_width: number;
     char_height: number;
     color_selection: ROVec4;

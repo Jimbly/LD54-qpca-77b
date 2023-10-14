@@ -2466,6 +2466,7 @@ export function main(): void {
     null);
   v4copy(engine.border_clear_color, palette[11]);
   v4copy(engine.border_color, palette[11]);
+  camera2d.setDOMFontPixelScale(0.970);
   ui.uiBindSounds({
     button_click: ['click1', 'click2', 'click3', 'click4', 'click5', 'click6'],
     error: 'error',
