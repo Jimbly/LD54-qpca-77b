@@ -29,6 +29,8 @@ export function addHook(draw: UIHookFn, click: UIHookFn): void;
 export function getUIElemData<T, P extends SpotKeyable>(type: string, param: P, allocator: (param: P)=>T) : T;
 export const font: Font;
 export const title_font: Font;
+export function uiGetFont(): Font;
+export function uiGetTitleFont(): Font;
 export function uiFontStyleNormal(): FontStyle;
 export function uiFontStyleFocused(): FontStyle;
 export function uiFontStyleDisabled(): FontStyle;
@@ -62,9 +64,11 @@ export interface UISprites {
 }
 export const sprites: UISprites;
 // DEPRECATED: export const font_height: number; // use uiStyleCurrent().text_height or uiTextHeight()
+// DEPRECATED: export const button_width: number;
+// DEPRECATED: export const button_height: number;
 export function uiTextHeight(): number;
-export const button_width: number;
-export const button_height: number;
+export function uiButtonHeight(): number;
+export function uiButtonWidth(): number;
 export const panel_pixel_scale: number;
 export function buttonWasFocused(): boolean;
 export function colorSetSetShades(rollover: number, down: number, disabled: number): void;
@@ -228,12 +232,12 @@ export function label(param: LabelParam): number;
 
 export function modalDialogClear(): void;
 
-export interface ModalDialogButtonEx<CB> extends Partial<ButtonTextParam> {
+export interface ModalDialogButtonEx<CB> {
   cb?: CB | null;
   in_event_cb?: EventCallback | null;
   label?: Text;
 }
-export type ModalDialogButton<CB> = null | CB | ModalDialogButtonEx<CB>;
+export type ModalDialogButton<CB> = null | CB | ModalDialogButtonEx<CB> | Partial<ButtonTextParam | ButtonImageParam>;
 export type ModalDialogTickCallbackParams = {
   readonly x0: number;
   readonly x: number;

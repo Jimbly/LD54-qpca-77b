@@ -62,6 +62,7 @@ import {
   loadUISprite,
   panel,
   playUISound,
+  uiButtonHeight,
 } from 'glov/client/ui';
 import { getURLBase } from 'glov/client/urlhash';
 import { DataObject, Optional, TSMap } from 'glov/common/types';
@@ -1398,7 +1399,7 @@ function statePlay(dt: number): void {
   {
     let x = CONTROLS_X;
     let y = CONTROLS_Y;
-    let w = ui.button_height;
+    let w = uiButtonHeight();
 
     if (game_state.isSimulating()) {
       let status = 'RUNNING';
