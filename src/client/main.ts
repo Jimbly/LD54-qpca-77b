@@ -43,7 +43,7 @@ import {
   scoreAlloc,
   scoreGetPlayerName,
 } from 'glov/client/score';
-import { scoresDraw } from 'glov/client/score_ui';
+import { ColumnDef, scoresDraw } from 'glov/client/score_ui';
 import * as settings from 'glov/client/settings';
 import { spotGetCurrentFocusKey } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
@@ -86,7 +86,7 @@ import {
   puzzles,
 } from './puzzles';
 
-const { floor, min } = Math;
+const { floor } = Math;
 
 const TICK_TIME = 1000;
 const TICK_TIME_FF_START = 100;
@@ -1182,19 +1182,16 @@ function autoStartPuzzle(new_puzzle_idx: number): void {
 }
 
 function winnerName(score: ScoreData, scores: HighScoreList<ScoreData> | null, field: keyof ScoreData): string {
-  let winner = scores && scores.length ? scores[0] : null;
+  let winner = scores && scores.list && scores.list.length ? scores.list[0] : null;
   if (!winner) {
     return '';
   }
   if (winner.score[field] === score[field]) {
-    let nextbest = scores && scores[1];
-    if (nextbest && nextbest.score[field] === score[field] ||
-      winner.name !== scoreGetPlayerName()
-    ) {
+    if (winner.count > 1 || winner.count === 1 && !winner.names.includes(scoreGetPlayerName())) {
       return ' (TIED)';
     }
   }
-  return ` (${winner.name})`;
+  return ` (${winner.names_str})`;
 }
 
 let last_focus: string = '';
@@ -1304,11 +1301,11 @@ function statePlay(dt: number): void {
       x, y, z, w, h,
       align: ALIGN.HCENTERFIT|ALIGN.HWRAP,
       text: 'HIGH SCORE:\n' +
-        `${scoresc && scoresc.length ? scoresc[0].score.cycles : '?'} Cycles` +
+        `${scoresc && scoresc.list.length ? scoresc.list[0].score.cycles : '?'} Cycles` +
         `${winnerName(score, scoresc, 'cycles')}\n` +
-        `${scoresa && scoresa.length ? scoresa[0].score.loc : '?'} Lines of code` +
+        `${scoresa && scoresa.list.length ? scoresa.list[0].score.loc : '?'} Lines of code` +
         `${winnerName(score, scoresa, 'loc')}\n` +
-        `$${scoresb && scoresb.length ? scoresb[0].score.nodes : '?'} Cost` +
+        `$${scoresb && scoresb.list.length ? scoresb.list[0].score.nodes : '?'} Cost` +
         `${winnerName(score, scoresb, 'nodes')}`,
     }) + 16;
 
@@ -1962,9 +1959,6 @@ NOP`);
   setStatePlay();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ColumnDef = any;
-
 const SCORE_COLUMNSA: ColumnDef[] = [
   // widths are just proportional, scaled relative to `width` passed in
   { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
@@ -2102,7 +2096,8 @@ function stateLevelSelect(dt: number): void {
   x = pad;
   let score_common = {
     width,
-    y, height: H - y,
+    height: H - y,
+    y,
     z: Z.UI,
     size: CHH,
     line_height: CHH+8,
@@ -2482,87 +2477,35 @@ export function main(): void {
 
   init();
 
-  const ENCODE_CYCLES = 100000000;
-  const ENCODE_NODES = 1000;
-  const ENCODE_LOC = 1000;
-  // min everything
   function encodeScoreLOC(score: ScoreData): number {
-    let {
-      loc,
-      nodes,
-      cycles,
-    } = score;
-
-    loc = ENCODE_LOC - 1 - min(loc, ENCODE_LOC-1);
-    nodes = ENCODE_NODES - 1 - min(nodes, ENCODE_NODES-1);
-    cycles = ENCODE_CYCLES - 1 - min(cycles, ENCODE_CYCLES-1);
-    return loc * ENCODE_NODES * ENCODE_CYCLES + nodes * ENCODE_CYCLES + cycles;
+    return score.loc;
   }
   function encodeScoreNodes(score: ScoreData): number {
-    let {
-      loc,
-      nodes,
-      cycles,
-    } = score;
-
-    loc = ENCODE_LOC - 1 - min(loc, ENCODE_LOC-1);
-    nodes = ENCODE_NODES - 1 - min(nodes, ENCODE_NODES-1);
-    cycles = ENCODE_CYCLES - 1 - min(cycles, ENCODE_CYCLES-1);
-    return nodes * ENCODE_CYCLES * ENCODE_LOC + cycles * ENCODE_LOC + loc;
+    return score.nodes;
   }
   function encodeScoreCycles(score: ScoreData): number {
-    let {
-      loc,
-      nodes,
-      cycles,
-    } = score;
-
-    loc = ENCODE_LOC - 1 - min(loc, ENCODE_LOC-1);
-    nodes = ENCODE_NODES - 1 - min(nodes, ENCODE_NODES-1);
-    cycles = ENCODE_CYCLES - 1 - min(cycles, ENCODE_CYCLES-1);
-    return cycles * ENCODE_LOC * ENCODE_NODES + loc * ENCODE_NODES + nodes;
+    return score.cycles;
   }
 
   function parseScoreLOC(value: number): ScoreData {
-    let loc = floor(value / (ENCODE_NODES * ENCODE_CYCLES));
-    value -= loc * ENCODE_NODES * ENCODE_CYCLES;
-    let nodes = floor(value / ENCODE_CYCLES);
-    value -= nodes * ENCODE_CYCLES;
-    loc = ENCODE_LOC - 1 - loc;
-    nodes = ENCODE_NODES - 1 - nodes;
-    let cycles = ENCODE_CYCLES - 1 - value;
     return {
-      loc,
-      nodes,
-      cycles,
+      loc: value,
+      nodes: 0,
+      cycles: 0,
     };
   }
   function parseScoreNodes(value: number): ScoreData {
-    let nodes = floor(value / (ENCODE_LOC * ENCODE_CYCLES));
-    value -= nodes * ENCODE_LOC * ENCODE_CYCLES;
-    let cycles = floor(value / ENCODE_LOC);
-    value -= cycles * ENCODE_LOC;
-    let loc = ENCODE_LOC - 1 - value;
-    nodes = ENCODE_NODES - 1 - nodes;
-    cycles = ENCODE_CYCLES - 1 - cycles;
     return {
-      loc,
-      nodes,
-      cycles,
+      loc: 0,
+      nodes: value,
+      cycles: 0,
     };
   }
   function parseScoreCycles(value: number): ScoreData {
-    let cycles = floor(value / (ENCODE_NODES * ENCODE_LOC));
-    value -= cycles * ENCODE_NODES * ENCODE_LOC;
-    let loc = floor(value / ENCODE_NODES);
-    value -= loc * ENCODE_NODES;
-    loc = ENCODE_LOC - 1 - loc;
-    let nodes = ENCODE_NODES - 1 - value;
-    cycles = ENCODE_CYCLES - 1 - cycles;
     return {
-      loc,
-      nodes,
-      cycles,
+      loc: 0,
+      nodes: 0,
+      cycles: value,
     };
   }
 
@@ -2571,27 +2514,40 @@ export function main(): void {
     score_to_value: encodeScoreLOC,
     value_to_score: parseScoreLOC,
     level_defs: level_defs,
-    score_key: 'LD54l2'
+    score_key: 'LD54l3',
+    ls_key: 'ld54l2',
+    asc: true,
+    rel: 6,
+    num_names: 2,
   });
   score_systemb = scoreAlloc({
     score_to_value: encodeScoreNodes,
     value_to_score: parseScoreNodes,
     level_defs: level_defs,
-    score_key: 'LD54n2'
+    score_key: 'LD54n3',
+    ls_key: 'ld54n2',
+    asc: true,
+    rel: 6,
+    num_names: 2,
   });
   score_systemc = scoreAlloc({
     score_to_value: encodeScoreCycles,
     value_to_score: parseScoreCycles,
     level_defs: level_defs,
-    score_key: 'LD54c2'
+    score_key: 'LD54c3',
+    ls_key: 'ld54c2',
+    asc: true,
+    rel: 6,
+    num_names: 2,
   });
 
 
   stateTitleInit();
   if (engine.DEBUG && true) {
-    autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
+    // autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
-    // engine.setState(stateLevelSelect);
+    cur_level_idx = 2;
+    engine.setState(stateLevelSelect);
   } else {
     engine.setState(stateTitle);
   }
