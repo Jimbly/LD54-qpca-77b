@@ -433,7 +433,7 @@ Write each number to OUTPUT unless it is the same as the previously written numb
     id: 'maxn',
     title: 'Maximum Redux',
     desc: 'Find the largest of lists of numbers',
-    goal: `Read a list numbers from INPUT terminated by a ZERO
+    goal: `Read a list of numbers from INPUT terminated by a ZERO
 Write the largest number from the list to OUTPUT`,
     sets,
   };
