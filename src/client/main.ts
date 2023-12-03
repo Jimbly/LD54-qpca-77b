@@ -1961,21 +1961,21 @@ NOP`);
 
 const SCORE_COLUMNSA: ColumnDef[] = [
   // widths are just proportional, scaled relative to `width` passed in
-  { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
+  { name: '', width: 13, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
   { name: '', width: 60, align: ALIGN.HFIT | ALIGN.VCENTER }, // Name
-  { name: 'LOC', width: 24 },
+  { name: 'LOC', width: 19 },
 ];
 const SCORE_COLUMNSB: ColumnDef[] = [
   // widths are just proportional, scaled relative to `width` passed in
-  { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
+  { name: '', width: 13, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
   { name: '', width: 60, align: ALIGN.HFIT | ALIGN.VCENTER }, // Name
-  { name: 'COST', width: 24 },
+  { name: 'COST', width: 19 },
 ];
 const SCORE_COLUMNSC: ColumnDef[] = [
   // widths are just proportional, scaled relative to `width` passed in
-  { name: '', width: 12, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
+  { name: '', width: 13, align: ALIGN.HFIT | ALIGN.HRIGHT | ALIGN.VCENTER },
   { name: '', width: 60, align: ALIGN.HFIT | ALIGN.VCENTER }, // Name
-  { name: 'CYCLES', width: 24 },
+  { name: 'CYCLES', width: 19 },
 ];
 const style_score = fontStyleColored(null, palette_font[9]);
 const style_me = fontStyleColored(null, palette_font[10]);
