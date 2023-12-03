@@ -2517,7 +2517,7 @@ export function main(): void {
     score_key: 'LD54l3',
     ls_key: 'ld54l2',
     asc: true,
-    rel: 6,
+    rel: engine.defines.COMPO ? 100 : 6,
     num_names: 2,
   });
   score_systemb = scoreAlloc({
@@ -2527,7 +2527,7 @@ export function main(): void {
     score_key: 'LD54n3',
     ls_key: 'ld54n2',
     asc: true,
-    rel: 6,
+    rel: engine.defines.COMPO ? 100 : 6,
     num_names: 2,
   });
   score_systemc = scoreAlloc({
@@ -2537,7 +2537,7 @@ export function main(): void {
     score_key: 'LD54c3',
     ls_key: 'ld54c2',
     asc: true,
-    rel: 6,
+    rel: engine.defines.COMPO ? 100 : 6,
     num_names: 2,
   });
 
