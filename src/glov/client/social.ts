@@ -9,6 +9,7 @@ import {
   PRESENCE_ACTIVE,
   PRESENCE_INACTIVE,
   PRESENCE_OFFLINE,
+  PRESENCE_OFFLINE_INACTIVE,
 } from 'glov/common/enums';
 import { FriendData, FriendStatus, FriendsData } from 'glov/common/friends_data';
 import {
@@ -176,6 +177,10 @@ function onPresence(this: { presence_data?: PresenceEntry }, data: PresenceEntry
   user_channel.presence_data = data;
 }
 
+function onUnSubscribe(this: { presence_data?: PresenceEntry }): void {
+  delete this.presence_data;
+}
+
 type ClientPresenceState = Omit<PresenceEntry, 'id'>;
 let last_presence: ClientPresenceState | null = null;
 let send_queued = false;
@@ -197,19 +202,25 @@ function richPresenceSend(): void {
     pak.send();
   });
 }
-export function richPresenceSet(active_in: boolean, state: string, payload?: unknown): void {
+export function richPresenceSet(active_in: number, state: string, payload?: unknown): void {
   let active: number;
   switch (socialPresenceStatusGet()) {
     case SOCIAL_AFK:
-      active = PRESENCE_INACTIVE;
+      active = active_in === PRESENCE_ACTIVE ? PRESENCE_INACTIVE : active_in;
       break;
     case SOCIAL_INVISIBLE:
       active = PRESENCE_OFFLINE;
       break;
     default:
-      active = !active_in || (Date.now() - input.inputLastTime() > IDLE_TIME) ?
-        PRESENCE_INACTIVE :
-        PRESENCE_ACTIVE;
+      active = active_in;
+  }
+  let is_idle = (Date.now() - input.inputLastTime() > IDLE_TIME);
+  if (is_idle) {
+    if (active === PRESENCE_ACTIVE) {
+      active = PRESENCE_INACTIVE;
+    } else if (active === PRESENCE_OFFLINE) {
+      active = PRESENCE_OFFLINE_INACTIVE;
+    }
   }
   payload = payload || null;
   if (!last_presence ||
@@ -426,6 +437,10 @@ export function getUserProfileImage(user_id: string): UserProfileImage {
   return default_profile_image;
 }
 
+export function getDefaultUserProfileImage(): UserProfileImage {
+  return default_profile_image;
+}
+
 export function setDefaultUserProfileImage(image: UserProfileImage): void {
   default_profile_image = image;
 }
@@ -486,4 +501,5 @@ export function socialInit(): void {
   });
 
   netSubs().onChannelMsg('user', 'presence', onPresence);
+  netSubs().onChannelEvent('user', 'unsubscribe', onUnSubscribe);
 }

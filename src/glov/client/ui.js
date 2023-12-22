@@ -66,7 +66,6 @@ const {
   spotTopOfFrame,
   spotUnfocus,
 } = require('./spot.js');
-const glov_sprites = require('./sprites.js');
 const {
   BLEND_PREMULALPHA,
   spriteClipped,
@@ -75,7 +74,9 @@ const {
   spriteChainedStart,
   spriteChainedStop,
   spriteCreate,
-} = glov_sprites;
+  spriteQueueRaw,
+  spriteQueueRaw4,
+} = require('./sprites.js');
 const { TEXTURE_FORMAT } = require('./textures.js');
 const {
   uiStyleDefault,
@@ -785,14 +786,17 @@ export function drawTooltip(param) {
   let w = tooltip_w - eff_tooltip_pad * 2;
   let dims = font.dims(font_style_modal, w, 0, ui_style_current.text_height, tooltip);
   let above = param.tooltip_above;
-  let right = param.tooltip_right;
   if (!above && param.tooltip_auto_above_offset) {
     above = tooltip_y0 + dims.h + eff_tooltip_pad * 2 > camera2d.y1();
   }
   let x = param.x;
   let eff_tooltip_w = dims.w + eff_tooltip_pad * 2;
+  let right = param.tooltip_right;
+  let center = param.tooltip_center;
   if (right && param.tooltip_auto_right_offset) {
     x += param.tooltip_auto_right_offset - eff_tooltip_w;
+  } else if (center && param.tooltip_auto_right_offset) {
+    x += (param.tooltip_auto_right_offset - eff_tooltip_w) / 2;
   }
   if (x + eff_tooltip_w > camera2d.x1()) {
     x = camera2d.x1() - eff_tooltip_w;
@@ -848,6 +852,7 @@ export function drawTooltipBox(param) {
     tooltip_above: param.tooltip_above,
     tooltip_auto_right_offset: param.w,
     tooltip_right: param.tooltip_right,
+    tooltip_center: param.tooltip_center,
     tooltip,
     tooltip_width: param.tooltip_width,
   });
@@ -1123,35 +1128,46 @@ export function label(param) {
     tooltip,
     tooltip_above,
     tooltip_right,
+    img,
+    frame,
+    img_color,
+    img_color_focused,
   } = param;
   if (param.style) {
     assert(!param.style.color); // Received a FontStyle, expecting a UIStyle
   }
-  text = getStringFromLocalizable(text);
-  let use_font = param.font || font;
   let z = param.z || Z.UI;
-  let style = param.style || ui_style_current;
-  let size = param.size || style.text_height;
   assert(isFinite(x));
   assert(isFinite(y));
-  assert.equal(typeof text, 'string');
+  let style = param.style || ui_style_current;
+  let use_font = param.font || font;
+  let size = param.size || style.text_height;
+  if (img) {
+    // nothing?  add alignment support?
+  } else {
+    assert(text !== undefined);
+    text = getStringFromLocalizable(text);
+    if (tooltip) {
+      if (!w) {
+        w = use_font.getStringWidth(font_style, size, text);
+        if (align & ALIGN.HRIGHT) {
+          x -= w;
+        } else if (align & ALIGN.HCENTER) {
+          x -= w/2;
+        }
+      }
+      if (!h) {
+        h = size;
+        if (align & ALIGN.VBOTTOM) {
+          y -= h;
+        } else if (align & ALIGN.VCENTER) {
+          y -= h/2;
+        }
+      }
+    }
+  }
+
   if (tooltip) {
-    if (!w) {
-      w = use_font.getStringWidth(font_style, size, text);
-      if (align & ALIGN.HRIGHT) {
-        x -= w;
-      } else if (align & ALIGN.HCENTER) {
-        x -= w/2;
-      }
-    }
-    if (!h) {
-      h = size;
-      if (align & ALIGN.VBOTTOM) {
-        y -= h;
-      } else if (align & ALIGN.VCENTER) {
-        y -= h/2;
-      }
-    }
     assert(isFinite(w));
     assert(isFinite(h));
     let spot_ret = spot({
@@ -1159,13 +1175,26 @@ export function label(param) {
       tooltip: tooltip,
       tooltip_width: param.tooltip_width,
       tooltip_above,
-      tooltip_right,
+      tooltip_right: tooltip_right || param.align & ALIGN.HRIGHT,
+      tooltip_center: param.align & ALIGN.HCENTER,
       def: SPOT_DEFAULT_LABEL,
     });
     if (spot_ret.focused && spotPadMode()) {
-      if (label_font_style_focused) {
-        font_style = label_font_style_focused;
+      let need_focus_indicator = false;
+      if (img) {
+        if (img_color_focused) {
+          img_color = img_color_focused;
+        } else {
+          need_focus_indicator = true;
+        }
       } else {
+        if (label_font_style_focused) {
+          font_style = label_font_style_focused;
+        } else {
+          need_focus_indicator = true;
+        }
+      }
+      if (need_focus_indicator) {
         // No focused style provided, do a generic glow instead?
         // eslint-disable-next-line @typescript-eslint/no-use-before-define
         drawElipse(x - w*0.25, y-h*0.25, x + w*1.25, y + h*1.25, z - 0.001, 0.5, unit_vec);
@@ -1173,11 +1202,19 @@ export function label(param) {
     }
   }
   let text_w = 0;
-  if (text) {
-    if (align) {
-      text_w = use_font.drawSizedAligned(font_style, x, y, z, size, align, w, h, text);
-    } else {
-      text_w = use_font.drawSized(font_style, x, y, z, size, text);
+  if (img) {
+    img.draw({
+      x, y, z, w, h,
+      color: img_color,
+      frame,
+    });
+  } else {
+    if (text) {
+      if (align) {
+        text_w = use_font.drawSizedAligned(font_style, x, y, z, size, align, w, h, text);
+      } else {
+        text_w = use_font.drawSized(font_style, x, y, z, size, text);
+      }
     }
   }
   profilerStopFunc();
@@ -1399,6 +1436,7 @@ export function modalTextEntry(param) {
     initial_select: true,
     text: param.edit_text,
     max_len: param.max_len,
+    max_visual_size: param.max_visual_size,
     esc_clears: false,
   });
   let buttons = {};
@@ -1600,7 +1638,7 @@ export function copyTextToClipboard(text) {
   return ret;
 }
 
-export function provideUserString(title, str) {
+export function provideUserString(title, str, alt_buttons) {
   let copy_success = copyTextToClipboard(str);
   modalTextEntry({
     edit_w: 400,
@@ -1609,7 +1647,7 @@ export function provideUserString(title, str) {
     text: copy_success ?
       default_copy_success_msg :
       default_copy_failure_msg,
-    buttons: { ok: null },
+    buttons: { ...(alt_buttons || {}), ok: null },
   });
 }
 
@@ -1679,7 +1717,7 @@ function drawElipseInternal(sprite, x0, y0, x1, y1, z, spread, tu0, tv0, tu1, tv
     blend = BLEND_PREMULALPHA;
     color = premulAlphaColor(color);
   }
-  glov_sprites.queueraw(sprite.texs,
+  spriteQueueRaw(sprite.texs,
     x0, y0, z, x1 - x0, y1 - y0,
     tu0, tv0, tu1, tv1,
     color, glov_font.font_shaders.font_aa, spreadTechParams(spread), blend);
@@ -1873,7 +1911,7 @@ export function drawLine(x0, y0, x1, y1, z, w, precise, color, mode) {
   }
   shader_param = line_last_shader_param;
 
-  glov_sprites.queueraw4(texs,
+  spriteQueueRaw4(texs,
     x1 + tangx, y1 + tangy,
     x1 - tangx, y1 - tangy,
     x0 - tangx, y0 - tangy,
@@ -1886,7 +1924,7 @@ export function drawLine(x0, y0, x1, y1, z, w, precise, color, mode) {
     // round caps (line3) - square caps (line2)
     let nx = dx * w/2;
     let ny = dy * w/2;
-    glov_sprites.queueraw4(texs,
+    spriteQueueRaw4(texs,
       x1 - tangx, y1 - tangy,
       x1 + tangx, y1 + tangy,
       x1 + tangx + nx, y1 + tangy + ny,
@@ -1894,7 +1932,7 @@ export function drawLine(x0, y0, x1, y1, z, w, precise, color, mode) {
       z,
       LINE_U2, LINE_V1, LINE_U3, LINE_V0,
       color, glov_font.font_shaders.font_aa, shader_param, blend);
-    glov_sprites.queueraw4(texs,
+    spriteQueueRaw4(texs,
       x0 - tangx, y0 - tangy,
       x0 + tangx, y0 + tangy,
       x0 + tangx - nx, y0 + tangy - ny,
@@ -1961,7 +1999,7 @@ export function drawCone(x0, y0, x1, y1, z, w0, w1, spread, color) {
   dy /= length;
   let tangx = -dy;
   let tangy = dx;
-  glov_sprites.queueraw4(sprites.cone.texs,
+  spriteQueueRaw4(sprites.cone.texs,
     x0 - tangx*w0, y0 - tangy*w0,
     x0 + tangx*w0, y0 + tangy*w0,
     x1 + tangx*w1, y1 + tangy*w1,

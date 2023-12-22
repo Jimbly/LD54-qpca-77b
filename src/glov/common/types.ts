@@ -196,6 +196,9 @@ export interface ClientChannelWorker {
   readonly data: {
     public?: unknown;
   };
+  readonly channel_id: string;
+  readonly channel_type: string;
+  readonly channel_subid: string;
 }
 
 export interface UserChannel extends ClientChannelWorker {
@@ -211,3 +214,8 @@ export type DeepPartial<T> = T extends DataObject ? {
 } : T;
 
 export type NumberBoolean = 0 | 1;
+
+export type TextVisualLimit = {
+  font_height: number;
+  width: number;
+};

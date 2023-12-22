@@ -116,6 +116,7 @@ class GlovUIEditBox {
     this.text = '';
     this.placeholder = '';
     this.max_len = 0;
+    this.max_visual_size = null;
     this.zindex = null;
     this.uppercase = false;
     this.initial_focus = false;
@@ -148,20 +149,28 @@ class GlovUIEditBox {
       sel_start: 0,
       sel_end: 0,
     };
+    this.resetCSSCaching();
+    this.had_overflow = false;
+  }
+  resetCSSCaching() {
     this.last_tab_index = -1;
     this.last_font_size = '';
-    this.had_overflow = false;
+    this.last_clip_path = '';
   }
   applyParams(params) {
     if (!params) {
       return;
     }
+    let old_text = this.text;
     for (let f in params) {
       this[f] = params[f];
     }
     if (this.text === undefined) {
       // do not trigger assert if `params` has a `text: undefined` member
       this.text = '';
+    }
+    if (params.text && params.text !== old_text) {
+      this.setText(params.text);
     }
     this.h = this.font_height;
   }
@@ -170,13 +179,16 @@ class GlovUIEditBox {
   }
   updateText() {
     const { input } = this;
+    if (!input) {
+      return;
+    }
     let new_text = input.value;
     if (new_text === this.text) {
       this.last_valid_state.sel_start = input.selectionStart;
       this.last_valid_state.sel_end = input.selectionEnd;
       return;
     }
-    const { multiline, enforce_multiline, max_len } = this;
+    const { multiline, enforce_multiline, max_len, max_visual_size } = this;
     // text has changed, validate
     let valid = true;
 
@@ -205,14 +217,40 @@ class GlovUIEditBox {
       }
     }
 
-    if (max_len > 0) {
+    if (max_len > 0 || max_visual_size) {
+      // If just max_visual_size, use infinite max_len
+      let eff_max_len = max_len || Infinity;
       let lines = multiline ? new_text.split('\n') : [new_text];
       for (let ii = 0; ii < lines.length; ++ii) {
         let line = lines[ii];
-        if (line.length > max_len) {
-          if (trimEnd(line).length <= max_len) {
+        let over = line.length > eff_max_len;
+        let font = max_visual_size ? uiGetFont() : null;
+        if (max_visual_size && !over) {
+          over = font.getStringWidth(null, max_visual_size.font_height, line) > max_visual_size.width;
+        }
+        let trimmed = trimEnd(line);
+        let trim_over = over && trimmed.length > eff_max_len;
+        if (max_visual_size && over && !trim_over) {
+          trim_over = font.getStringWidth(null,
+            max_visual_size.font_height, trimmed) > max_visual_size.width;
+        }
+        if (max_visual_size && over && trim_over &&
+          // was it over by 2 or more characters?  Probably just pasted, do a truncate instead of reject
+          font.getStringWidth(null,
+            max_visual_size.font_height, line.slice(0, -2)) > max_visual_size.width
+        ) {
+          while (trimmed.length && font.getStringWidth(null,
+            max_visual_size.font_height, trimmed) > max_visual_size.width
+          ) {
+            trimmed = trimmed.slice(0, -1);
+            trim_over = false;
+          }
+        }
+
+        if (over) {
+          if (!trim_over) {
             let old_line_end_pos = lines.slice(0, ii+1).join('\n').length;
-            lines[ii] = trimEnd(line);
+            lines[ii] = trimmed;
             let new_line_end_pos = lines.slice(0, ii+1).join('\n').length;
             new_text = lines.join('\n');
             let sel_start = input.selectionStart;
@@ -259,6 +297,32 @@ class GlovUIEditBox {
   }
   setText(new_text) {
     new_text = String(new_text);
+
+    // sanitize if appropriate
+    const { max_len, max_visual_size, multiline } = this;
+    let font = max_visual_size ? uiGetFont() : null;
+    if (max_len > 0 && max_visual_size) {
+      let lines = multiline ? new_text.split('\n') : [new_text];
+      for (let ii = 0; ii < lines.length; ++ii) {
+        let line = lines[ii];
+        if (max_len > 0) {
+          if (line.length > max_len) {
+            line = trimEnd(line);
+          }
+          if (line.length > max_len) {
+            line = line.slice(0, max_len);
+          }
+        }
+        if (max_visual_size) {
+          while (line.length && font.getStringWidth(null, max_visual_size.font_height, line) > max_visual_size.width) {
+            line = line.slice(0, line.length - 1);
+          }
+        }
+        lines[ii] = line;
+      }
+      new_text = lines.join('\n');
+    }
+
     if (this.input && this.input.value !== new_text) {
       this.input.value = new_text;
     }
@@ -370,11 +434,19 @@ class GlovUIEditBox {
       spotSuppressKBNav(true, Boolean(multiline || this.suppress_up_down));
     }
 
+    const { text, x, y, z, w, h } = this;
+
+    let clipped_rect = {
+      x, y, w, h
+    };
+    if (allow_focus && !camera2d.clipTestRect(clipped_rect)) {
+      allow_focus = false;
+    }
+
     this_frame_edit_boxes.push(this);
     let elem = allow_focus && uiGetDOMElem(this.elem, true);
     if (elem !== this.elem) {
-      this.last_tab_index = -1;
-      this.last_font_size = '';
+      this.resetCSSCaching();
       if (elem) {
         // new DOM element, initialize
         if (!form_hook_registered) {
@@ -447,14 +519,34 @@ class GlovUIEditBox {
       }
     }
     if (elem) {
-      let pos = camera2d.htmlPos(this.x, this.y);
+      let pos = camera2d.htmlPos(x, y);
       if (!this.spellcheck) {
         elem.spellcheck = false;
       }
       elem.style.left = `${pos[0]}%`;
       elem.style.top = `${pos[1]}%`;
-      let size = camera2d.htmlSize(this.w, 0);
+      let size = camera2d.htmlSize(w, h);
       elem.style.width = `${size[0]}%`;
+      elem.style.height = `${size[1]}%`;
+
+      let clip_path = '';
+      if (clipped_rect.x !== x ||
+        clipped_rect.y !== y ||
+        clipped_rect.w !== w ||
+        clipped_rect.h !== h
+      ) {
+        // partially clipped
+        let x0 = `${(clipped_rect.x - x)/w*100}%`;
+        let x1 = `${(clipped_rect.x + clipped_rect.w - x)/w*100}%`;
+        let y0 = `${(clipped_rect.y - y)/h*100}%`;
+        let y1 = `${(clipped_rect.y + clipped_rect.w - y)/h*100}%`;
+        clip_path = `polygon(${x0} ${y0}, ${x1} ${y0}, ${x1} ${y1}, ${x0} ${y1})`;
+      } else {
+        clip_path = '';
+      }
+      if (clip_path !== this.last_clip_path) {
+        elem.style.clipPath = this.last_clip_path = clip_path;
+      }
 
       let new_fontsize = `${camera2d.virtualToFontSize(font_height).toFixed(8)}px`;
       if (new_fontsize !== this.last_font_size) {
@@ -490,8 +582,7 @@ class GlovUIEditBox {
         this.postspan.setAttribute('tabindex', tab_index2);
       }
     } else {
-      this.last_tab_index = -1;
-      this.last_font_size = '';
+      this.resetCSSCaching();
     }
 
     if (focused) {
@@ -507,7 +598,6 @@ class GlovUIEditBox {
       // keyboard input is handled by the INPUT element, but allow mouse events to trickle
       eatAllKeyboardInput();
     }
-    const { text, x, y, z, w, h } = this;
     // Eat mouse events going to the edit box
     mouseConsumeClicks({ x, y, w, h });
 
