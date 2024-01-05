@@ -133,6 +133,7 @@ export type ScoresDrawParam<ScoreType> = {
   color_me_background: ROVec4;
   color_line: ROVec4;
   allow_rename: boolean;
+  no_header?: boolean;
 };
 
 const skipped_rank_column_def: ColumnDef = {
@@ -159,6 +160,7 @@ export function scoresDraw<ScoreType>({
   color_me_background,
   color_line,
   allow_rename,
+  no_header,
 }: ScoresDrawParam<ScoreType>): number {
   assert(color_me_background[3] === 1);
   if (!font) {
@@ -221,10 +223,12 @@ export function scoresDraw<ScoreType>({
     }
     y += line_height;
   }
-  drawSet(columns.map(getName), style_header, true);
-  y += 2;
-  ui.drawLine(x, y, x+width, y, z, 1, 1, color_line);
-  y += 1;
+  if (!no_header) {
+    drawSet(columns.map(getName), style_header, true);
+    y += 2;
+    ui.drawLine(x, y, x+width, y, z, 1, 1, color_line);
+    y += 1;
+  }
   const scores_scroll_h = scroll_max_y - y;
   scores_scroll.begin({
     x, y,

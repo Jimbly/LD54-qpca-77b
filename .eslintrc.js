@@ -463,7 +463,7 @@ module.exports = {
     "prefer-reflect": "off", // JE
     "prefer-rest-params": "error",
     "prefer-spread": "off",
-    "prefer-template": ignore_style ? "off" : "error",
+    "prefer-template": "off", // JE; LD54
     "quote-props": relaxed ? "off" : [
       "error",
       "consistent"

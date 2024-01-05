@@ -44,6 +44,10 @@ import {
   scoreGetPlayerName,
 } from 'glov/client/score';
 import { ColumnDef, scoresDraw } from 'glov/client/score_ui';
+import {
+  ScrollArea,
+  scrollAreaCreate,
+} from 'glov/client/scroll_area';
 import * as settings from 'glov/client/settings';
 import { spotGetCurrentFocusKey } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
@@ -1993,6 +1997,7 @@ function myScoreToRowC(row: unknown[], score: ScoreData): void {
 const MAX_SLOTS = engine.defines.COMPO ? 3 : 4;
 
 let choosing_new_game = false;
+let level_select_scroll: ScrollArea;
 function stateLevelSelect(dt: number): void {
   gl.clearColor(palette[4][0], palette[4][1], palette[4][2], 1);
   v4copy(engine.border_clear_color, palette[4]);
@@ -2005,99 +2010,137 @@ function stateLevelSelect(dt: number): void {
 
   const button_h = BUTTON_H;
   let button_w = BUTTON_H * 3;
-  const arrow_inset = 100;
-  if (buttonText({
-    x: x + arrow_inset, y,
-    h: button_h, w: button_w,
-    text: cur_level_idx === 0 ? 'TITLE' : 'PREV',
-  })) {
-    choosing_new_game = false;
-    if (cur_level_idx === 0) {
-      queueTransition();
-      // eslint-disable-next-line @typescript-eslint/no-use-before-define
-      engine.setState(stateTitle);
-    } else {
-      cur_level_idx--;
-      score_systema.forceRefreshScores(cur_level_idx);
-      score_systemb.forceRefreshScores(cur_level_idx);
-      score_systemc.forceRefreshScores(cur_level_idx);
-    }
-  }
-  if (buttonWasFocused() && cur_level_idx > 0) {
-    score_systema.prefetchScores(cur_level_idx - 1);
-    score_systemb.prefetchScores(cur_level_idx - 1);
-    score_systemc.prefetchScores(cur_level_idx - 1);
-  }
 
-  if (buttonText({
-    x: game_width - button_w - arrow_inset, y,
-    h: button_h, w: button_w,
-    text: 'NEXT',
-    disabled: cur_level_idx === MAX_LEVEL - 1,
-  })) {
-    cur_level_idx++;
-    choosing_new_game = false;
-    score_systema.forceRefreshScores(cur_level_idx);
-    score_systemb.forceRefreshScores(cur_level_idx);
-    score_systemc.forceRefreshScores(cur_level_idx);
-  }
-  if (buttonWasFocused() && cur_level_idx < MAX_LEVEL - 1) {
-    score_systema.prefetchScores(cur_level_idx + 1);
-    score_systemb.prefetchScores(cur_level_idx + 1);
-    score_systemc.prefetchScores(cur_level_idx + 1);
-  }
+  const bottom_pad = 6;
+  const bottom_button_w = floor(BUTTON_H * 3);
+
+  const button_y = camera2d.y1() - button_h - 4;
+  const hline_y = button_y - 4;
 
   if (button({
     x: game_width - button_h - 4,
     y,
-    w: button_h, h: button_h,
-    img: settings.sfx === 0 ? sprites.icon_sound0 : settings.sfx === 1 ? sprites.icon_sound1 : sprites.icon_sound2,
+    w: button_h, h: TITLE_H - 2,
+    text: 'X',
     shrink: 1,
-    tooltip: settings.sfx === 0 ? 'SFX Off' : settings.sfx === 1 ? 'Mute beeps and bloops' : 'All SFX on',
-    sound_button: null,
+    tooltip: 'Return to Title Screen',
   })) {
-    settings.set('sfx', settings.sfx === 0 ? 2 : settings.sfx - 1);
-    playUISound('button_click');
+    queueTransition();
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    engine.setState(stateTitle);
   }
 
-  // y += (button_h - TITLE_H) / 2;
+  const line_color = palette[1];
+  const vline_x = 4 + button_h * 2 + button_h * 4 + bottom_pad * 2 + 7;
+  drawLine(vline_x, 4, vline_x, game_height - 4, Z.UI, 1, 1, line_color);
 
+  x = 4;
+  let w = vline_x - 4 - x;
   font.draw({
-    color: palette_font[8],
-    x, y, w: game_width,
+    color: palette_font[10],
+    x, y, w,
     align: ALIGN.HCENTER|ALIGN.HWRAP,
+    size: TITLE_H,
+    text: 'Level Select',
+  });
+  y += TITLE_H;
+  drawLine(8, y, vline_x - 8, y, Z.UI, 1, 1, line_color);
+
+  // Scrollable list of levels
+
+  let row_h = button_h;
+  let button_x = x + 4;
+  button_w = w - 4 - button_x;
+
+  if (!level_select_scroll) {
+    level_select_scroll = scrollAreaCreate({
+      rate_scroll_click: row_h + 4,
+      background_color: null,
+      auto_hide: true,
+    });
+  }
+  level_select_scroll.begin({
+    x: 0, y, w: vline_x, h: hline_y - y,
+  });
+  y = 4;
+
+  for (let ii = 0; ii < MAX_LEVEL; ++ii) {
+    let title = puzzles[ii].title;
+    // TODO: checkmarks
+    if (button({
+      x: button_x, y,
+      w: button_w, h: button_h,
+      text: `${ii+1}: ${title}`,
+      disabled: cur_level_idx === ii,
+    })) {
+      choosing_new_game = false;
+      cur_level_idx = ii;
+      score_systema.forceRefreshScores(cur_level_idx);
+      score_systemb.forceRefreshScores(cur_level_idx);
+      score_systemc.forceRefreshScores(cur_level_idx);
+    }
+    if (buttonWasFocused()) {
+      score_systema.prefetchScores(ii);
+      score_systemb.prefetchScores(ii);
+      score_systemc.prefetchScores(ii);
+    }
+    y += row_h + 4;
+  }
+  level_select_scroll.end(y);
+
+
+  // Current level info
+  x = vline_x + 5;
+  y = 4;
+  w = game_width - 4 - x;
+  font.draw({
+    color: palette_font[9],
+    x, y, w,
+    align: ALIGN.HCENTER,
     size: CHH,
     text: `QPCA-77B Training Exercise ${cur_level_idx + 1} / ${MAX_LEVEL}`,
   });
   y += CHH;
   font.draw({
-    color: palette_font[10],
-    x, y, w: game_width,
-    align: ALIGN.HCENTER|ALIGN.HWRAP,
-    size: TITLE_H,
-    text: puzzles[cur_level_idx].title,
-  });
-  y += TITLE_H;
-  y += font.draw({
     color: palette_font[8],
-    x, y, w: game_width,
-    align: ALIGN.HCENTER|ALIGN.HWRAP,
+    x, y, w,
+    align: ALIGN.HCENTER,
     size: CHH,
-    text: puzzles[cur_level_idx].desc || puzzles[cur_level_idx].goal,
+    text: `${puzzles[cur_level_idx].title}: ` + (puzzles[cur_level_idx].desc || puzzles[cur_level_idx].goal),
   });
+  y += CHH;
+  drawLine(vline_x + 9, y, game_width - 8, y, Z.UI, 1, 1, line_color);
+  y += 4;
 
-  // let has_score = false; // score_systema.hasScore(cur_level_idx);
-
-  const button_y = camera2d.y1() - button_h - 4;
-  const H = button_y - CHH;
-  let pad = 12;
-  const W = game_width - pad * 2;
-  const width = floor((W - pad*2)/3);
-  x = pad;
+  const score_area_y1 = hline_y - 3;
+  const score_area_h = score_area_y1 - y;
+  const panel_pad = 2;
+  const score_section_h = floor((score_area_h - panel_pad * 2) / 3);
+  const score_area_w = w;
+  const histo_w = floor((score_area_w - panel_pad) / 2);
+  const scores_w = histo_w;
+  const histo_x = x;
+  const scores_x = x + histo_w + panel_pad;
+  const section_defs = [{
+    label: 'CYCLES',
+    score_system: score_systemc,
+    scoreToRow: myScoreToRowC,
+    columns: SCORE_COLUMNSC,
+  }, {
+    label: 'LINES OF CODE',
+    score_system: score_systema,
+    scoreToRow: myScoreToRowA,
+    columns: SCORE_COLUMNSA,
+  }, {
+    label: 'COST',
+    score_system: score_systemb,
+    scoreToRow: myScoreToRowB,
+    columns: SCORE_COLUMNSB,
+  }];
   let score_common = {
-    width,
-    height: H - y,
-    y,
+    width: scores_w,
+    height: score_section_h + button_h - 5, // HACK: just add a no rename padding option instead?
+    x: scores_x,
     z: Z.UI,
     size: CHH,
     line_height: CHH+8,
@@ -2108,65 +2151,122 @@ function stateLevelSelect(dt: number): void {
     color_line: palette[0],
     color_me_background: palette[1],
     allow_rename: false,
+    no_header: true,
   };
-  scoresDraw({
-    ...score_common,
-    score_system: score_systemc,
-    x,
-    columns: SCORE_COLUMNSC,
-    scoreToRow: myScoreToRowC,
-    allow_rename: true,
-  });
-  x += width + pad;
+  for (let ii = 0; ii < section_defs.length; ++ii) {
+    let section_def = section_defs[ii];
+    let { score_system } = section_def;
+    x = histo_x;
+    font.draw({
+      x, y: y + PANEL_VPAD, w: score_area_w,
+      text: section_def.label,
+      align: ALIGN.HCENTER,
+      color: palette_font[5],
+    });
+    let line_x = x + floor(score_area_w/2);
+    drawLine(line_x, y + CHH + 4, line_x, y + score_section_h - 1, Z.UI, 1, 1, palette[9]);
 
-  scoresDraw({
-    ...score_common,
-    score_system: score_systema,
-    x,
-    columns: SCORE_COLUMNSA,
-    scoreToRow: myScoreToRowA,
-  });
-  x += width + pad;
+    // Score histogram
 
-  scoresDraw({
-    ...score_common,
-    score_system: score_systemb,
-    x,
-    columns: SCORE_COLUMNSB,
-    scoreToRow: myScoreToRowB,
-  });
-  x += width + pad;
+    // Score list
+    scoresDraw({
+      ...score_common,
+      score_system,
+      y: y + CHH + 4,
+      columns: section_def.columns,
+      scoreToRow: section_def.scoreToRow,
+    });
 
+    panel({
+      x, y, w: score_area_w, h: score_section_h,
+      sprite: ui.sprites.node_panel_info,
+    });
+    y += score_section_h + panel_pad;
+  }
+
+  drawLine(4, hline_y, game_width - 4, hline_y, Z.UI, 1, 1, line_color);
 
   y = button_y;
-  button_w = floor(BUTTON_H * 1.5);
-  x = 4 + (engine.defines.COMPO ? BUTTON_H : BUTTON_H/2);
+  button_w = bottom_button_w;
+
+  x = 4;
+  let pad = bottom_pad;
+
+  if (button({
+    x,
+    y,
+    w: button_h, h: button_h,
+    img: settings.sfx === 0 ? sprites.icon_sound0 : settings.sfx === 1 ? sprites.icon_sound1 : sprites.icon_sound2,
+    shrink: 1,
+    tooltip: settings.sfx === 0 ? 'SFX Off' : settings.sfx === 1 ? 'Mute beeps and bloops' : 'All SFX on',
+    sound_button: null,
+  })) {
+    settings.set('sfx', settings.sfx === 0 ? 2 : settings.sfx - 1);
+    playUISound('button_click');
+  }
+  x += button_h + pad;
+
+  let paramdc = {
+    x,
+    y,
+    w: button_h, h: button_h,
+    img: sprites.icon_discord,
+    shrink: 1,
+    tooltip: 'Visit the Dashing Strike Discord',
+    url: 'https://discord.gg/dashingstrike',
+  };
+  if (link(paramdc)) {
+    playUISound('button_click');
+  }
+  button(paramdc);
+  x += button_h + pad;
+
+  let paramref = {
+    x,
+    y,
+    w: button_h * 4, h: button_h,
+    text: 'Reference Manual',
+    url: MANUAL_URL,
+  };
+  if (link(paramref)) {
+    playUISound('button_click');
+  }
+  buttonText(paramref);
+
+  x = game_width - button_w * 4 - pad * 3 - 4;
   let puzzle_id = puzzle_ids[cur_level_idx];
   for (let ii = 0; ii < MAX_SLOTS; ++ii) {
     let storage_key = `p${puzzle_id}.${ii}`;
     let saved_data = localStorageGet(storage_key);
-    let xstart = x;
+    // let xstart = x;
+    let stats_string = '';
     if (saved_data) {
+      let saved_parsed = JSON.parse(saved_data);
+      let stats = saved_parsed.stats;
+      if (stats) {
+        stats_string = `${stats.cycles || '?'}C/${stats.loc}L/$${stats.nodes}`;
+      }
       if (choosing_new_game) {
         if (buttonText({
           x, y,
-          w: button_w * 2 + 4, h: button_h,
-          text: `COPY FROM SAVE ${ii+1}`,
+          w: button_w, h: button_h,
+          align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
+          text: `COPY FROM SAVE${stats_string ? `\n${stats_string}` : ''}`,
           sound_button: null,
         })) {
           choosing_new_game = false;
           game_state = new GameState();
-          game_state.fromJSON(cur_level_idx, JSON.parse(saved_data));
+          game_state.fromJSON(cur_level_idx, saved_parsed);
           undoReset();
           setStatePlay();
         }
-        x += button_w * 2 + 4 * 2;
       } else {
         let can_resume = (cur_level_slot === ii && game_state && game_state.puzzle_idx === cur_level_idx);
         if (buttonText({
           x, y,
           w: button_w, h: button_h,
-          text: can_resume ? 'RESUME' : 'LOAD',
+          align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
+          text: (can_resume ? 'RESUME' : 'LOAD') + (stats_string ? `\n${stats_string}` : ''),
           sound_button: null,
         })) {
           if (can_resume) {
@@ -2174,27 +2274,25 @@ function stateLevelSelect(dt: number): void {
           } else {
             cur_level_slot = ii;
             game_state = new GameState();
-            game_state.fromJSON(cur_level_idx, JSON.parse(saved_data));
+            game_state.fromJSON(cur_level_idx, saved_parsed);
             undoReset();
           }
           setStatePlay();
         }
-        x += button_w + 4;
-        if (buttonText({
-          x, y,
-          w: button_w, h: button_h,
-          text: 'DEL',
-        })) {
-          localStorageSet(storage_key, undefined);
-        }
-        x += button_w + 4;
+        // if (buttonText({
+        //   x, y,
+        //   w: button_w, h: button_h,
+        //   text: 'DEL',
+        // })) {
+        //   localStorageSet(storage_key, undefined);
+        // }
       }
     } else {
       if (choosing_new_game) {
         if (cur_level_slot === ii) {
           if (buttonText({
             x, y,
-            w: button_w * 2 + 4, h: button_h,
+            w: button_w, h: button_h,
             text: 'START FRESH',
             sound_button: null,
           })) {
@@ -2202,9 +2300,7 @@ function stateLevelSelect(dt: number): void {
             startPuzzle(puzzle_id);
           }
         }
-        x += button_w * 2 + 4 * 2;
       } else {
-        x += button_w/2 + 2;
         let has_any_other = false;
         for (let jj = 0; jj < MAX_SLOTS; ++jj) {
           if (jj !== ii) {
@@ -2217,7 +2313,8 @@ function stateLevelSelect(dt: number): void {
         if (buttonText({
           x, y,
           w: button_w, h: button_h,
-          text: 'NEW',
+          align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
+          text: `NEW\nSLOT ${ii+1}`,
           sound_button: has_any_other ? undefined : null,
         })) {
           cur_level_slot = ii;
@@ -2228,59 +2325,18 @@ function stateLevelSelect(dt: number): void {
             startPuzzle(puzzle_id);
           }
         }
-        x += button_w + 4;
-        x += button_w/2 + 2;
       }
     }
-    font.draw({
-      color: palette_font[9],
-      y: y - CHH*2,
-      x: xstart, w: x - xstart,
-      align: ALIGN.HCENTER,
-      text: `Save ${ii+1}`,
-    });
-    if (saved_data) {
-      let stats = JSON.parse(saved_data).stats;
-      if (stats) {
-        font.draw({
-          color: palette_font[9],
-          y: y - CHH,
-          x: xstart, w: x - xstart,
-          align: ALIGN.HCENTER,
-          text: `${stats.loc}L/$${stats.nodes}/${stats.cycles || '?'}C`,
-        });
-      }
-    }
-    x += 8;
+    // font.draw({
+    //   color: palette_font[9],
+    //   y: y - CHH,
+    //   x: xstart, w: x - xstart,
+    //   align: ALIGN.HCENTER,
+    //   text: `Save ${ii+1}`,
+    // });
+    x += button_w + pad;
   }
 
-  if (!engine.defines.COMPO) {
-    let param = {
-      x: game_width - button_h * 4 - 4 - button_h - 4,
-      y,
-      w: button_h, h: button_h,
-      img: sprites.icon_discord,
-      shrink: 1,
-      tooltip: 'Visit the Dashing Strike Discord',
-      url: 'https://discord.gg/dashingstrike',
-    };
-    if (link(param)) {
-      playUISound('button_click');
-    }
-    button(param);
-  }
-
-  let param = {
-    x: game_width - button_h * 4 - 4,
-    y,
-    w: button_h * 4, h: button_h,
-    text: 'Reference Manual',
-    url: MANUAL_URL,
-  };
-  if (link(param)) {
-    playUISound('button_click');
-  }
-  buttonText(param);
 }
 
 let title_anim: AnimationSequencer | null = null;
