@@ -33,6 +33,7 @@ import {
   KEYS,
   eatAllInput,
   mouseDownAnywhere,
+  mouseOver,
 } from 'glov/client/input';
 import { link } from 'glov/client/link';
 import { localStorageGet, localStorageSet } from 'glov/client/local_storage';
@@ -90,7 +91,7 @@ import {
   puzzles,
 } from './puzzles';
 
-const { floor } = Math;
+const { floor, max, round } = Math;
 
 const TICK_TIME = 1000;
 const TICK_TIME_FF_START = 100;
@@ -1982,6 +1983,11 @@ const SCORE_COLUMNSC: ColumnDef[] = [
   { name: 'CYCLES', width: 19 },
 ];
 const style_score = fontStyleColored(null, palette_font[9]);
+const style_score_tooltip = fontStyle(null, {
+  color: palette_font[5],
+  outline_width: 5,
+  outline_color: palette_font[4],
+});
 const style_me = fontStyleColored(null, palette_font[10]);
 const style_header = fontStyleColored(null, palette_font[6]);
 function myScoreToRowA(row: unknown[], score: ScoreData): void {
@@ -1995,6 +2001,7 @@ function myScoreToRowC(row: unknown[], score: ScoreData): void {
 }
 
 const MAX_SLOTS = engine.defines.COMPO ? 3 : 4;
+const HIGHLIGHT_MY_SCORE_BAR = false;
 
 let choosing_new_game = false;
 let level_select_scroll: ScrollArea;
@@ -2121,21 +2128,26 @@ function stateLevelSelect(dt: number): void {
   const scores_w = histo_w;
   const histo_x = x;
   const scores_x = x + histo_w + panel_pad;
+  const histo_bar_pad = 4;
+  const histo_bar_h = score_section_h - 25 - histo_bar_pad;
   const section_defs = [{
     label: 'CYCLES',
     score_system: score_systemc,
     scoreToRow: myScoreToRowC,
     columns: SCORE_COLUMNSC,
+    score_key: 'cycles' as const,
   }, {
     label: 'LINES OF CODE',
     score_system: score_systema,
     scoreToRow: myScoreToRowA,
     columns: SCORE_COLUMNSA,
+    score_key: 'loc' as const,
   }, {
     label: 'COST',
     score_system: score_systemb,
     scoreToRow: myScoreToRowB,
     columns: SCORE_COLUMNSB,
+    score_key: 'nodes' as const,
   }];
   let score_common = {
     width: scores_w,
@@ -2155,7 +2167,7 @@ function stateLevelSelect(dt: number): void {
   };
   for (let ii = 0; ii < section_defs.length; ++ii) {
     let section_def = section_defs[ii];
-    let { score_system } = section_def;
+    let { score_system, score_key } = section_def;
     x = histo_x;
     font.draw({
       x, y: y + PANEL_VPAD, w: score_area_w,
@@ -2164,15 +2176,80 @@ function stateLevelSelect(dt: number): void {
       color: palette_font[5],
     });
     let line_x = x + floor(score_area_w/2);
-    drawLine(line_x, y + CHH + 4, line_x, y + score_section_h - 1, Z.UI, 1, 1, palette[9]);
+    const content_y0 = y + CHH + 4;
+    const content_y1 = y + score_section_h - 1;
+
+    drawLine(line_x, content_y0, line_x, content_y1, Z.UI, 1, 1, palette[9]);
 
     // Score histogram
+    let histo = score_system.getHighScores(cur_level_idx)?.histogram;
+    if (histo) {
+      let my_score = score_system.getScore(cur_level_idx);
+      let { start, bucket_size, counts } = histo;
+      let num_bars = counts.length;
+      // let lastv = start + bucket_size * (num_bars-1);
+      // let width = String(lastv).length;
+      let maxv = max(...counts);
+      const histo_bar_inner_pad = 2;
+      let bar_w = (histo_w - 2 * histo_bar_pad - (num_bars - 1) * histo_bar_inner_pad) / num_bars;
+      let hx = x + histo_bar_pad;
+      const bar_y0 = content_y0 + histo_bar_pad;
+      const bar_y1 = bar_y0 + histo_bar_h;
+      const all_bar_w = (bar_w + histo_bar_inner_pad) * num_bars - histo_bar_inner_pad;
+      const hx1 = hx + all_bar_w;
+      const my_bar_w = 3;
+      if (my_score) {
+        let my_value = my_score[score_key];
+        let my_x = clamp(hx + round((my_value - start)/(bucket_size * num_bars)*(all_bar_w - my_bar_w)), hx, hx1 + 2);
+        // drawLine(my_x, bar_y0 - 2, my_x, bar_y1 - 1, Z.UI + 1, 1, 1, palette[10]);
+        drawRect(my_x, bar_y0 - 2, my_x + my_bar_w, bar_y1, Z.UI + 1, palette[10]);
+      }
+      for (let jj = 0; jj < num_bars; ++jj) {
+        let count = counts[jj];
+        let bar_height = round(count / maxv * histo_bar_h);
+        if (count && !bar_height) {
+          bar_height = 1;
+        }
+        let start_value = start + bucket_size * jj;
+        let is_last_bar = (jj === num_bars - 1);
+        let end_value = is_last_bar ? Infinity : start + bucket_size * (jj + 1);
+        if (bar_height) {
+          let is_mine = false;
+          if (my_score && HIGHLIGHT_MY_SCORE_BAR) {
+            let my_value = my_score[score_key];
+            if (score_system.asc) {
+              is_mine = my_value >= start_value && my_value < end_value;
+            } else {
+              is_mine = my_value <= start_value && my_value > end_value;
+            }
+          }
+          let mouse_over = mouseOver({
+            x: hx, y: bar_y0,
+            w: bar_w, h: histo_bar_h,
+          });
+          drawRect(hx, bar_y1 - bar_height, hx + bar_w, bar_y1, Z.UI, palette[mouse_over ? 3 : is_mine ? 10 : 2]);
+          if (mouse_over) {
+            font.draw({
+              style: style_score_tooltip,
+              x: floor(hx + bar_w/2),
+              y: bar_y0,
+              z: Z.TOOLTIP,
+              h: histo_bar_h,
+              align: ALIGN.HVCENTER,
+              text: `${start_value}${is_last_bar ? '+' : `-${end_value-1}`}: ${count} ${plural(count, 'player')}`,
+            });
+          }
+        }
+        hx += bar_w + histo_bar_inner_pad;
+      }
+
+    }
 
     // Score list
     scoresDraw({
       ...score_common,
       score_system,
-      y: y + CHH + 4,
+      y: content_y0,
       columns: section_def.columns,
       scoreToRow: section_def.scoreToRow,
     });
@@ -2575,6 +2652,7 @@ export function main(): void {
     asc: true,
     rel: engine.defines.COMPO ? 100 : 6,
     num_names: 2,
+    histogram: true,
   });
   score_systemb = scoreAlloc({
     score_to_value: encodeScoreNodes,
@@ -2585,6 +2663,7 @@ export function main(): void {
     asc: true,
     rel: engine.defines.COMPO ? 100 : 6,
     num_names: 2,
+    histogram: true,
   });
   score_systemc = scoreAlloc({
     score_to_value: encodeScoreCycles,
@@ -2595,6 +2674,7 @@ export function main(): void {
     asc: true,
     rel: engine.defines.COMPO ? 100 : 6,
     num_names: 2,
+    histogram: true,
   });
 
 
@@ -2602,7 +2682,7 @@ export function main(): void {
   if (engine.DEBUG && true) {
     // autoStartPuzzle(puzzle_ids.length-1); // puzzle_ids.indexOf('inc'));
     // game_state.ff();
-    cur_level_idx = 2;
+    cur_level_idx = 6;
     engine.setState(stateLevelSelect);
   } else {
     engine.setState(stateTitle);
