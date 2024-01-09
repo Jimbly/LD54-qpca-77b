@@ -2286,6 +2286,7 @@ function stateLevelSelect(dt: number): void {
       y: content_y0,
       columns: section_def.columns,
       scoreToRow: section_def.scoreToRow,
+      scroll_key: section_def.label,
     });
 
     panel({
