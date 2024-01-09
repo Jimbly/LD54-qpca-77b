@@ -54,7 +54,6 @@ import { spotGetCurrentFocusKey } from 'glov/client/spot';
 import { spriteSetGet } from 'glov/client/sprite_sets';
 import {
   Sprite,
-  spriteCreate,
 } from 'glov/client/sprites';
 import * as transition from 'glov/client/transition';
 import * as ui from 'glov/client/ui';
@@ -90,6 +89,29 @@ import {
   puzzle_ids,
   puzzles,
 } from './puzzles';
+
+const {
+  FRAME_CHANNEL_BG,
+  FRAME_CHANNEL_BG_FLASH,
+  FRAME_ICON_CHECK,
+  FRAME_ICON_DISCORD,
+  FRAME_ICON_FF,
+  FRAME_ICON_HELP,
+  FRAME_ICON_MENU,
+  FRAME_ICON_PAUSE,
+  FRAME_ICON_PLAY,
+  FRAME_ICON_REDO,
+  FRAME_ICON_SOUND0,
+  FRAME_ICON_SOUND1,
+  FRAME_ICON_SOUND2,
+  FRAME_ICON_STEP,
+  FRAME_ICON_STOP,
+  FRAME_ICON_UNDO,
+  FRAME_X,
+  FRAME_X_FOCUSED,
+
+  sprite_icons,
+} = require('./img/icons');
 
 const { floor, max, round } = Math;
 
@@ -1131,19 +1153,7 @@ function undoRedo(): void {
 }
 
 
-let sprites: Record<string, Sprite> = {};
 function init(): void {
-  [
-    'play', 'pause', 'stop', 'menu', 'redo', 'undo', 'help', 'ff', 'step',
-    'sound1', 'sound2', 'sound0', 'discord', 'check',
-  ].forEach(function (name) {
-    name = `icon_${name}`;
-    sprites[name] = spriteCreate({ name });
-  });
-  sprites.channel_bg = spriteCreate({ name: 'channel_bg' });
-  sprites.channel_bg_flash = spriteCreate({ name: 'channel_bg_flash' });
-  sprites.x = spriteCreate({ name: 'x' });
-  sprites.x_focused = spriteCreate({ name: 'x_focused' });
   loadUISprite('node_panel_bg', [16, 16, 16], [16, 16, 16]);
   loadUISprite('node_panel', [16, 16, 16], [32, 16, 16]);
   loadUISprite('node_panel_info', [16, 16, 16], [32, 16, 16]);
@@ -1427,7 +1437,8 @@ function statePlay(dt: number): void {
     let disabled = game_state.hasError() || game_state.won();
     if (button({
       x, y, w,
-      img: game_state.isPlaying() ? sprites.icon_pause : sprites.icon_play,
+      img: sprite_icons,
+      frame: game_state.isPlaying() ? FRAME_ICON_PAUSE : FRAME_ICON_PLAY,
       shrink: 1,
       tooltip: game_state.isPlaying() ? '[F1] Pause' : '[F1] Start',
       disabled,
@@ -1439,7 +1450,8 @@ function statePlay(dt: number): void {
     x += w + 2;
     if (button({
       x, y, w,
-      img: sprites.icon_step,
+      img: sprite_icons,
+      frame: FRAME_ICON_STEP,
       shrink: 1,
       tooltip: !game_state.isSimulating() ? '[F2] Start paused' : !game_state.isPlaying() ?
         '[F2] Step 1 instruction' :
@@ -1463,7 +1475,8 @@ function statePlay(dt: number): void {
     x += w + 2;
     if (button({
       x, y, w,
-      img: sprites.icon_ff,
+      img: sprite_icons,
+      frame: FRAME_ICON_FF,
       shrink: 1,
       tooltip: '[F3] Fast-forward',
       disabled,
@@ -1478,7 +1491,8 @@ function statePlay(dt: number): void {
     if (game_state.isSimulating()) {
       if (button({
         x, y, w,
-        img: sprites.icon_stop,
+        img: sprite_icons,
+        frame: FRAME_ICON_STOP,
         shrink: 1,
         tooltip: '[F4] Stop',
         hotkey: KEYS.F4,
@@ -1490,7 +1504,8 @@ function statePlay(dt: number): void {
     } else {
       if (button({
         x, y, w,
-        img: sprites.icon_undo,
+        img: sprite_icons,
+        frame: FRAME_ICON_UNDO,
         shrink: 1,
         tooltip: '[F8] Undo',
         disabled: !canUndo(),
@@ -1501,7 +1516,8 @@ function statePlay(dt: number): void {
       x += w + 2;
       if (button({
         x, y, w,
-        img: sprites.icon_redo,
+        img: sprite_icons,
+        frame: FRAME_ICON_REDO,
         shrink: 1,
         tooltip: '[F9] Redo',
         disabled: !canRedo(),
@@ -1513,7 +1529,8 @@ function statePlay(dt: number): void {
     }
     if (button({
       x, y, w,
-      img: sprites.icon_help,
+      img: sprite_icons,
+      frame: FRAME_ICON_HELP,
       shrink: 1,
       tooltip: 'Toggle Quick Reference',
     })) {
@@ -1523,7 +1540,8 @@ function statePlay(dt: number): void {
     x += w + 2;
     if (button({
       x, y, w,
-      img: sprites.icon_menu,
+      img: sprite_icons,
+      frame: FRAME_ICON_MENU,
       shrink: 1,
       tooltip: game_state.isSimulating() ?
         '[ESC] Stop, save, and return to exercise select' :
@@ -1648,7 +1666,8 @@ function statePlay(dt: number): void {
         y, z: Z.NODES + 1,
         w: CHH,
         h: CHH,
-        img: sprites.x,
+        img: sprite_icons,
+        frame: FRAME_X,
         shrink: 1,
         no_bg: true,
         // tooltip: 'Delete node', - not over DOM
@@ -1656,7 +1675,8 @@ function statePlay(dt: number): void {
         remove_nodes.push(node_idx);
       }
       if (buttonWasFocused()) {
-        sprites.x_focused.draw({
+        sprite_icons.draw({
+          frame: FRAME_X_FOCUSED,
           x: x + NODE_W - CHH - 5,
           y, z: Z.NODES + 0.5,
           w: CHH,
@@ -1847,7 +1867,8 @@ function statePlay(dt: number): void {
     let y = CHANNELS_Y;
     for (let ii = 0; ii < MAX_CHANNELS; ++ii) {
       let radio_idx = ii + 1;
-      sprites.channel_bg.draw({
+      sprite_icons.draw({
+        frame: FRAME_CHANNEL_BG,
         x, y, w: CHANNEL_W, h: CHANNEL_W,
       });
       let at = radio_activate_time[radio_idx];
@@ -1855,7 +1876,8 @@ function statePlay(dt: number): void {
       if (at) {
         let flashdt = engine.frame_timestamp - at;
         if (flashdt < RADIO_FLASH) {
-          sprites.channel_bg_flash.draw({
+          sprite_icons.draw({
+            frame: FRAME_CHANNEL_BG_FLASH,
             x, y, w: CHANNEL_W, h: CHANNEL_W, z: Z.UI + 1,
             color: [1,1,1,1 - flashdt/RADIO_FLASH],
           });
@@ -2094,10 +2116,12 @@ function stateLevelSelect(dt: number): void {
 
     let cur_score = score_systema.getScore(ii);
     if (cur_score) {
-      sprites.icon_check.draw({
-        x: button_x, y, w: 48, h: 48,
+      sprite_icons.draw({
+        x: button_x, y,
+        w: 48, h: 48,
         z: Z.UI + 10,
         color: palette[5],
+        frame: FRAME_ICON_CHECK,
       });
     }
 
@@ -2283,7 +2307,8 @@ function stateLevelSelect(dt: number): void {
     x,
     y,
     w: button_h, h: button_h,
-    img: settings.sfx === 0 ? sprites.icon_sound0 : settings.sfx === 1 ? sprites.icon_sound1 : sprites.icon_sound2,
+    img: sprite_icons,
+    frame: settings.sfx === 0 ? FRAME_ICON_SOUND0 : settings.sfx === 1 ? FRAME_ICON_SOUND1 : FRAME_ICON_SOUND2,
     shrink: 1,
     tooltip: settings.sfx === 0 ? 'SFX Off' : settings.sfx === 1 ? 'Mute beeps and bloops' : 'All SFX on',
     sound_button: null,
@@ -2297,7 +2322,8 @@ function stateLevelSelect(dt: number): void {
     x,
     y,
     w: button_h, h: button_h,
-    img: sprites.icon_discord,
+    img: sprite_icons,
+    frame: FRAME_ICON_DISCORD,
     shrink: 1,
     tooltip: 'Visit the Dashing Strike Discord',
     url: 'https://discord.gg/dashingstrike',
