@@ -35,7 +35,6 @@ import {
   mouseDownAnywhere,
   mouseOver,
 } from 'glov/client/input';
-import { link } from 'glov/client/link';
 import { localStorageGet, localStorageSet } from 'glov/client/local_storage';
 import * as net from 'glov/client/net';
 import {
@@ -1903,18 +1902,15 @@ function statePlay(dt: number): void {
     }
   }
 
-  let param = {
+  buttonText({
     x: game_width - BUTTON_H * 4 - 4,
     y: CHANNELS_Y,
     w: BUTTON_H * 4, h: BUTTON_H,
     text: 'Reference Manual',
+    internal: false,
     url: MANUAL_URL,
     tooltip: 'RTFM',
-  };
-  if (link(param)) {
-    playUISound('button_click');
-  }
-  buttonText(param);
+  });
 
   if (engine.defines.ENCODE) {
     let encoded1 = game_state.toEncoded(true);
@@ -2319,7 +2315,7 @@ function stateLevelSelect(dt: number): void {
   }
   x += button_h + pad;
 
-  let paramdc = {
+  button({
     x,
     y,
     w: button_h, h: button_h,
@@ -2327,25 +2323,19 @@ function stateLevelSelect(dt: number): void {
     frame: FRAME_ICON_DISCORD,
     shrink: 1,
     tooltip: 'Visit the Dashing Strike Discord',
+    internal: false,
     url: 'https://discord.gg/dashingstrike',
-  };
-  if (link(paramdc)) {
-    playUISound('button_click');
-  }
-  button(paramdc);
+  });
   x += button_h + pad;
 
-  let paramref = {
+  buttonText({
     x,
     y,
     w: button_h * 4, h: button_h,
     text: 'Reference Manual',
+    internal: false,
     url: MANUAL_URL,
-  };
-  if (link(paramref)) {
-    playUISound('button_click');
-  }
-  buttonText(paramref);
+  });
 
   x = game_width - button_w * 4 - pad * 3 - 4;
   let puzzle_id = puzzle_ids[cur_level_idx];
@@ -2558,17 +2548,14 @@ function stateTitle(dt: number): void {
       engine.setState(stateLevelSelect);
     }
 
-    let param = {
+    buttonText({
       ...button_param,
       x: button_x0 + button_w + PROMPT_PAD,
       y: y2,
       text: 'Reference Manual',
+      internal: false,
       url: MANUAL_URL,
-    };
-    if (link(param)) {
-      playUISound('button_click');
-    }
-    buttonText(param);
+    });
   }
 
   font.draw({
