@@ -1135,7 +1135,7 @@ let sprites: Record<string, Sprite> = {};
 function init(): void {
   [
     'play', 'pause', 'stop', 'menu', 'redo', 'undo', 'help', 'ff', 'step',
-    'sound1', 'sound2', 'sound0', 'discord',
+    'sound1', 'sound2', 'sound0', 'discord', 'check',
   ].forEach(function (name) {
     name = `icon_${name}`;
     sprites[name] = spriteCreate({ name });
@@ -2091,6 +2091,16 @@ function stateLevelSelect(dt: number): void {
       score_systemb.prefetchScores(ii);
       score_systemc.prefetchScores(ii);
     }
+
+    let cur_score = score_systema.getScore(ii);
+    if (cur_score) {
+      sprites.icon_check.draw({
+        x: button_x, y, w: 48, h: 48,
+        z: Z.UI + 10,
+        color: palette[5],
+      });
+    }
+
     y += row_h + 4;
   }
   level_select_scroll.end(y);
