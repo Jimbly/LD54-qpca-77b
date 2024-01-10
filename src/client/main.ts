@@ -2067,6 +2067,7 @@ function stateLevelSelect(dt: number): void {
     Z.UI, 1, 1, line_color);
 
   x = 4;
+  let need_scroll = MAX_LEVEL > 9;
   let w = vline_x - 4 - x;
   font.draw({
     color: palette_font[10],
@@ -2076,7 +2077,8 @@ function stateLevelSelect(dt: number): void {
     text: 'Level Select',
   });
   y += TITLE_H;
-  drawLine(8, y, vline_x - 8, y, Z.UI, 1, 1, line_color);
+  let left_column_hline_x1 = vline_x - 8 - (need_scroll ? 0 : 4);
+  drawLine(8, y, left_column_hline_x1, y, Z.UI, 1, 1, line_color);
 
   // Scrollable list of levels
 
@@ -2221,9 +2223,16 @@ function stateLevelSelect(dt: number): void {
     drawLine(line_x, content_y0, line_x, content_y1, Z.UI, 1, 1, palette[9]);
 
     // Score histogram
-    let histo = score_system.getHighScores(cur_level_idx)?.histogram;
-    if (histo) {
-      let my_score = score_system.getScore(cur_level_idx);
+    let high_scores = score_system.getHighScores(cur_level_idx);
+    if (high_scores && high_scores.histogram) {
+      let histo = high_scores.histogram;
+      let my_value = high_scores.my_score;
+      if (!my_value) { // should never happen, I think?  maybe out of sync?
+        let my_score = score_system.getScore(cur_level_idx);
+        if (my_score) {
+          my_value = my_score[score_key];
+        }
+      }
       let { start, bucket_size, counts } = histo;
       let num_bars = counts.length;
       // let lastv = start + bucket_size * (num_bars-1);
@@ -2237,8 +2246,7 @@ function stateLevelSelect(dt: number): void {
       const all_bar_w = (bar_w + histo_bar_inner_pad) * num_bars - histo_bar_inner_pad;
       const hx1 = hx + all_bar_w;
       const my_bar_w = 3;
-      if (my_score) {
-        let my_value = my_score[score_key];
+      if (my_value) {
         let my_x = clamp(hx + round((my_value - start)/(bucket_size * num_bars)*(all_bar_w - my_bar_w)), hx, hx1 + 2);
         // drawLine(my_x, bar_y0 - 2, my_x, bar_y1 - 1, Z.UI + 1, 1, 1, palette[10]);
         drawRect(my_x, bar_y0 - 2, my_x + my_bar_w, bar_y1, Z.UI + 1, palette[10]);
@@ -2254,8 +2262,7 @@ function stateLevelSelect(dt: number): void {
         let end_value = is_last_bar ? Infinity : start + bucket_size * (jj + 1);
         if (bar_height) {
           let is_mine = false;
-          if (my_score && HIGHLIGHT_MY_SCORE_BAR) {
-            let my_value = my_score[score_key];
+          if (my_value && HIGHLIGHT_MY_SCORE_BAR) {
             if (score_system.asc) {
               is_mine = my_value >= start_value && my_value < end_value;
             } else {
@@ -2301,7 +2308,10 @@ function stateLevelSelect(dt: number): void {
     y += score_section_h + panel_pad;
   }
 
-  drawLine(4, hline_y, game_width - 4, hline_y, Z.UI, 1, 1, line_color);
+  //drawLine(4, hline_y, game_width - 4, hline_y, Z.UI, 1, 1, line_color);
+  drawLine(8, hline_y, left_column_hline_x1, hline_y, Z.UI, 1, 1, line_color);
+  drawLine(vline_x + 8, hline_y, game_width - 8, hline_y, Z.UI, 1, 1, line_color);
+
 
   y = button_y;
   button_w = bottom_button_w;

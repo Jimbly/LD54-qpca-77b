@@ -160,6 +160,7 @@ type HighScoreHistogramRaw = {
 type HighScoreListRaw = {
   total: number;
   my_rank?: number;
+  my_score?: number;
   list: HighScoreListEntryRaw[];
   histo?: HighScoreHistogramRaw;
 };
@@ -178,6 +179,7 @@ export type HighScoreListHistogram = {
 export type HighScoreList<ScoreType> = {
   total: number;
   my_rank?: number;
+  my_score?: number;
   list: HighScoreListEntry<ScoreType>[];
   histogram?: HighScoreListHistogram;
 };
@@ -249,6 +251,7 @@ class ScoreSystemImpl<ScoreType> {
     let ret: HighScoreList<ScoreType> = {
       total: scores.total,
       my_rank: scores.my_rank,
+      my_score: scores.my_score,
       list: [],
     };
     let rank = 1;
