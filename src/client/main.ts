@@ -2247,7 +2247,8 @@ function stateLevelSelect(dt: number): void {
       const hx1 = hx + all_bar_w;
       const my_bar_w = 3;
       if (my_value) {
-        let my_x = clamp(hx + round((my_value - start)/(bucket_size * num_bars)*(all_bar_w - my_bar_w)), hx, hx1 + 2);
+        let my_x = clamp(hx + round((my_value - start)/(bucket_size * num_bars)*
+          (all_bar_w - my_bar_w + histo_bar_inner_pad)), hx, hx1 + 2);
         // drawLine(my_x, bar_y0 - 2, my_x, bar_y1 - 1, Z.UI + 1, 1, 1, palette[10]);
         drawRect(my_x, bar_y0 - 2, my_x + my_bar_w, bar_y1, Z.UI + 1, palette[10]);
       }
