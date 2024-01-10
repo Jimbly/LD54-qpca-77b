@@ -263,7 +263,7 @@ class NodeType {
     public cost: number,
     public encode:string
   ) {
-    this.h = (lines + 1) * CHH + (engine.defines.COMPO ? 0 : 2);
+    this.h = (lines + 1) * CHH + 2;
   }
 }
 let node_types: Record<string, NodeType> = {
@@ -538,7 +538,7 @@ class Node {
       }
       m = line.match(/^([a-z_.][\w.]*):(.*)$/);
       if (m) {
-        if (labels[m[1]] !== undefined && !engine.defines.COMPO) {
+        if (labels[m[1]] !== undefined) {
           if (!this.error_str) {
             this.error_str = `Duplicate label "${m[1]}"`;
             this.error_idx = ii;
@@ -590,11 +590,9 @@ class Node {
             // remap all labels to offsets
             let oplinenum = labels[p];
             if (oplinenum === undefined) {
-              if (!engine.defines.COMPO) { // COMPO version errors at runtime
-                if (!this.error_str) {
-                  this.error_str = `Unknown label "${p}"`;
-                  this.error_idx = op.source_line;
-                }
+              if (!this.error_str) {
+                this.error_str = `Unknown label "${p}"`;
+                this.error_idx = op.source_line;
               }
               p = op.p[jj] = 0;
             } else {
@@ -768,7 +766,7 @@ class Node {
           next_step_idx = mod(step_idx + label, op_lines.length);
         } else {
           assert(typeof label === 'string');
-          assert(engine.defines.COMPO);
+          assert(false); // shouldn't get here
           return this.stepError(`Unknown label "${label}"`);
         }
       } break;
@@ -1703,9 +1701,6 @@ function statePlay(dt: number): void {
       align: ALIGN.HCENTER,
     });
     y += CHH - 1;
-    if (engine.defines.COMPO) {
-      y++; // old, worse, spacing
-    }
     x += 4;
     if (game_state.isEditing()) {
       let last_code = node.code;
@@ -1734,7 +1729,7 @@ function statePlay(dt: number): void {
         node.setCode(ebr.text);
         // undoPush(false);
       }
-      if (ebr.edit_box.hadOverflow() && !engine.defines.COMPO) {
+      if (ebr.edit_box.hadOverflow()) {
         playUISound('kbbeep');
       }
     } else {
@@ -2021,7 +2016,7 @@ function myScoreToRowC(row: unknown[], score: ScoreData): void {
   row.push(score.cycles);
 }
 
-const MAX_SLOTS = engine.defines.COMPO ? 3 : 4;
+const MAX_SLOTS = 4;
 const HIGHLIGHT_MY_SCORE_BAR = false;
 
 let show_rename = false;
@@ -2562,7 +2557,7 @@ function stateTitle(dt: number): void {
   let W = game_width;
   let H = game_height;
 
-  if (title_anim && (!engine.defines.COMPO && mouseDownAnywhere() || engine.DEBUG)) {
+  if (title_anim && (mouseDownAnywhere() || engine.DEBUG)) {
     title_anim.update(Infinity);
     title_anim = null;
   }
@@ -2605,7 +2600,7 @@ function stateTitle(dt: number): void {
   const PROMPT_PAD = 8;
   if (title_alpha.button) {
     let button_w = BUTTON_H * 6;
-    let button_x0 = (W - button_w * 2 - PROMPT_PAD) / 2;
+    let button_x0 = floor((W - button_w * 2 - PROMPT_PAD) / 2);
     let button_h = BUTTON_H;
     let color = [1,1,1, title_alpha.button] as const;
     let y1 = H - button_h - button_h - 12 - 90;
@@ -2762,7 +2757,7 @@ export function main(): void {
     score_key: 'LD54l3',
     ls_key: 'ld54l2',
     asc: true,
-    rel: engine.defines.COMPO ? 100 : 6,
+    rel: 6,
     num_names: 2,
     histogram: true,
   });
@@ -2773,7 +2768,7 @@ export function main(): void {
     score_key: 'LD54n3',
     ls_key: 'ld54n2',
     asc: true,
-    rel: engine.defines.COMPO ? 100 : 6,
+    rel: 6,
     num_names: 2,
     histogram: true,
   });
@@ -2784,7 +2779,7 @@ export function main(): void {
     score_key: 'LD54c3',
     ls_key: 'ld54c2',
     asc: true,
-    rel: engine.defines.COMPO ? 100 : 6,
+    rel: 6,
     num_names: 2,
     histogram: true,
   });
