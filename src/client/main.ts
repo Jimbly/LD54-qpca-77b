@@ -42,6 +42,7 @@ import {
   ScoreSystem,
   scoreAlloc,
   scoreGetPlayerName,
+  scoreUpdatePlayerName,
 } from 'glov/client/score';
 import { ColumnDef, scoresDraw } from 'glov/client/score_ui';
 import {
@@ -1208,6 +1209,8 @@ function winnerName(score: ScoreData, scores: HighScoreList<ScoreData> | null, f
   return ` (${winner.names_str})`;
 }
 
+const font_style_text = fontStyleColored(null, palette_font[5]);
+
 let last_focus: string = '';
 function statePlay(dt: number): void {
   gl.clearColor(palette[11][0], palette[11][1], palette[11][2], 1);
@@ -1724,7 +1727,7 @@ function statePlay(dt: number): void {
           char_height: CHH,
           color_selection: palette[0],
           color_caret: palette[5],
-          style_text: fontStyleColored(null, palette_font[5]),
+          style_text: font_style_text,
         },
       }, node.code);
       if (ebr.text !== last_code) {
@@ -2021,6 +2024,8 @@ function myScoreToRowC(row: unknown[], score: ScoreData): void {
 const MAX_SLOTS = engine.defines.COMPO ? 3 : 4;
 const HIGHLIGHT_MY_SCORE_BAR = false;
 
+let show_rename = false;
+let rename_text = '';
 let choosing_new_game = false;
 let level_select_scroll: ScrollArea;
 function stateLevelSelect(dt: number): void {
@@ -2057,7 +2062,9 @@ function stateLevelSelect(dt: number): void {
 
   const line_color = palette[1];
   const vline_x = 4 + button_h * 2 + button_h * 4 + bottom_pad * 2 + 7;
-  drawLine(vline_x, 4, vline_x, game_height - 4, Z.UI, 1, 1, line_color);
+  drawLine(vline_x, 4, vline_x,
+    show_rename ? hline_y : game_height - 4,
+    Z.UI, 1, 1, line_color);
 
   x = 4;
   let w = vline_x - 4 - x;
@@ -2089,9 +2096,9 @@ function stateLevelSelect(dt: number): void {
   });
   y = 4;
 
+  let has_any_score = false;
   for (let ii = 0; ii < MAX_LEVEL; ++ii) {
     let title = puzzles[ii].title;
-    // TODO: checkmarks
     if (button({
       x: button_x, y,
       w: button_w, h: button_h,
@@ -2099,6 +2106,7 @@ function stateLevelSelect(dt: number): void {
       disabled: cur_level_idx === ii,
     })) {
       choosing_new_game = false;
+      show_rename = false;
       cur_level_idx = ii;
       score_systema.forceRefreshScores(cur_level_idx);
       score_systemb.forceRefreshScores(cur_level_idx);
@@ -2112,6 +2120,7 @@ function stateLevelSelect(dt: number): void {
 
     let cur_score = score_systema.getScore(ii);
     if (cur_score) {
+      has_any_score = true;
       sprite_icons.draw({
         x: button_x, y,
         w: 48, h: 48,
@@ -2328,119 +2337,187 @@ function stateLevelSelect(dt: number): void {
   });
   x += button_h + pad;
 
-  buttonText({
-    x,
-    y,
-    w: button_h * 4, h: button_h,
-    text: 'Reference Manual',
-    internal: false,
-    url: MANUAL_URL,
-  });
+  // buttonText({
+  //   x,
+  //   y,
+  //   w: button_h * 4, h: button_h,
+  //   text: 'Reference Manual',
+  //   internal: false,
+  //   url: MANUAL_URL,
+  // });
+  if (has_any_score) {
+    // player rename logic
+    let my_name = scoreGetPlayerName();
+    if (show_rename) {
+      font.draw({
+        text: 'Player Name',
+        size: CHH,
+        x,
+        y: y + 4,
+        color: palette_font[9],
+      });
+      let ebr = editBox({
+        key: 'rename',
+        placeholder: 'Anonymous',
+        x,
+        y: y + CHH + 8,
+        z: Z.UI,
+        w: 200,
+        type: 'text',
+        text: rename_text,
+        font_height: CHH,
+        esc_clears: false,
+        max_len: 64,
+        spellcheck: false,
+        initial_focus: true,
+        // TODO: support non-multiline canvase_render
+        // canvas_render: {
+        //   char_width: CHW,
+        //   char_height: CHH,
+        //   color_selection: palette[0],
+        //   color_caret: palette[5],
+        //   style_text: font_style_text,
+        // },
+      }, rename_text);
+      let submit = ebr.result === 'submit';
+      rename_text = ebr.text;
 
-  x = game_width - button_w * 4 - pad * 3 - 4;
-  let puzzle_id = puzzle_ids[cur_level_idx];
-  for (let ii = 0; ii < MAX_SLOTS; ++ii) {
-    let storage_key = `p${puzzle_id}.${ii}`;
-    let saved_data = localStorageGet(storage_key);
-    // let xstart = x;
-    let stats_string = '';
-    if (saved_data) {
-      let saved_parsed = JSON.parse(saved_data);
-      let stats = saved_parsed.stats;
-      if (stats) {
-        stats_string = `${stats.cycles || '?'}C/${stats.loc}L/$${stats.nodes}`;
+      let button_clicked = buttonText({
+        x: x + 200 + 4,
+        y,
+        w: button_h * 3,
+        h: button_h,
+        text: my_name === rename_text ? 'Cancel' : my_name ? 'Update Name' : 'Set Name',
+        disabled: !rename_text,
+      });
+
+      if (button_clicked || submit) {
+        scoreUpdatePlayerName(rename_text);
       }
-      if (choosing_new_game) {
-        if (buttonText({
-          x, y,
-          w: button_w, h: button_h,
-          align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
-          text: `COPY FROM SAVE${stats_string ? `\n${stats_string}` : ''}`,
-          sound_button: null,
-        })) {
-          choosing_new_game = false;
-          game_state = new GameState();
-          game_state.fromJSON(cur_level_idx, saved_parsed);
-          undoReset();
-          setStatePlay();
-        }
-      } else {
-        let can_resume = (cur_level_slot === ii && game_state && game_state.puzzle_idx === cur_level_idx);
-        if (buttonText({
-          x, y,
-          w: button_w, h: button_h,
-          align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
-          text: (can_resume ? 'RESUME' : 'LOAD') + (stats_string ? `\n${stats_string}` : ''),
-          sound_button: null,
-        })) {
-          if (can_resume) {
-            game_state.stop();
-          } else {
-            cur_level_slot = ii;
-            game_state = new GameState();
-            game_state.fromJSON(cur_level_idx, saved_parsed);
-            undoReset();
-          }
-          setStatePlay();
-        }
-        // if (buttonText({
-        //   x, y,
-        //   w: button_w, h: button_h,
-        //   text: 'DEL',
-        // })) {
-        //   localStorageSet(storage_key, undefined);
-        // }
+
+      if (button_clicked || ebr.result) {
+        show_rename = false;
       }
     } else {
-      if (choosing_new_game) {
-        if (cur_level_slot === ii) {
+      if (buttonText({
+        x,
+        y,
+        w: button_h * 4, h: button_h,
+        align: ALIGN.HWRAP|ALIGN.HVCENTERFIT,
+        text: `${my_name || 'Anonymous'}\nUpdate Name...`,
+      })) {
+        show_rename = true;
+        rename_text = my_name;
+      }
+    }
+  }
+
+  // Save slot loading selection
+  if (!show_rename) {
+    x = game_width - button_w * 4 - pad * 3 - 4;
+    let puzzle_id = puzzle_ids[cur_level_idx];
+    for (let ii = 0; ii < MAX_SLOTS; ++ii) {
+      let storage_key = `p${puzzle_id}.${ii}`;
+      let saved_data = localStorageGet(storage_key);
+      // let xstart = x;
+      let stats_string = '';
+      if (saved_data) {
+        let saved_parsed = JSON.parse(saved_data);
+        let stats = saved_parsed.stats;
+        if (stats) {
+          stats_string = `${stats.cycles || '?'}C/${stats.loc}L/$${stats.nodes}`;
+        }
+        if (choosing_new_game) {
           if (buttonText({
             x, y,
             w: button_w, h: button_h,
-            text: 'START FRESH',
+            align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
+            text: `COPY FROM SAVE${stats_string ? `\n${stats_string}` : ''}`,
             sound_button: null,
           })) {
             choosing_new_game = false;
-            startPuzzle(puzzle_id);
+            game_state = new GameState();
+            game_state.fromJSON(cur_level_idx, saved_parsed);
+            undoReset();
+            setStatePlay();
           }
+        } else {
+          let can_resume = (cur_level_slot === ii && game_state && game_state.puzzle_idx === cur_level_idx);
+          if (buttonText({
+            x, y,
+            w: button_w, h: button_h,
+            align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
+            text: (can_resume ? 'RESUME' : 'LOAD') + (stats_string ? `\n${stats_string}` : ''),
+            sound_button: null,
+          })) {
+            if (can_resume) {
+              game_state.stop();
+            } else {
+              cur_level_slot = ii;
+              game_state = new GameState();
+              game_state.fromJSON(cur_level_idx, saved_parsed);
+              undoReset();
+            }
+            setStatePlay();
+          }
+          // if (buttonText({
+          //   x, y,
+          //   w: button_w, h: button_h,
+          //   text: 'DEL',
+          // })) {
+          //   localStorageSet(storage_key, undefined);
+          // }
         }
       } else {
-        let has_any_other = false;
-        for (let jj = 0; jj < MAX_SLOTS; ++jj) {
-          if (jj !== ii) {
-            let other_key = `p${puzzle_id}.${jj}`;
-            if (localStorageGet(other_key)) {
-              has_any_other = true;
+        if (choosing_new_game) {
+          if (cur_level_slot === ii) {
+            if (buttonText({
+              x, y,
+              w: button_w, h: button_h,
+              text: 'START FRESH',
+              sound_button: null,
+            })) {
+              choosing_new_game = false;
+              startPuzzle(puzzle_id);
+            }
+          }
+        } else {
+          let has_any_other = false;
+          for (let jj = 0; jj < MAX_SLOTS; ++jj) {
+            if (jj !== ii) {
+              let other_key = `p${puzzle_id}.${jj}`;
+              if (localStorageGet(other_key)) {
+                has_any_other = true;
+              }
+            }
+          }
+          if (buttonText({
+            x, y,
+            w: button_w, h: button_h,
+            align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
+            text: `NEW\nSLOT ${ii+1}`,
+            sound_button: has_any_other ? undefined : null,
+          })) {
+            cur_level_slot = ii;
+            if (has_any_other) {
+              // prompt for "start fresh" or "copy from slot X"
+              choosing_new_game = true;
+            } else {
+              startPuzzle(puzzle_id);
             }
           }
         }
-        if (buttonText({
-          x, y,
-          w: button_w, h: button_h,
-          align: ALIGN.HWRAP | ALIGN.HCENTERFIT | ALIGN.VCENTER,
-          text: `NEW\nSLOT ${ii+1}`,
-          sound_button: has_any_other ? undefined : null,
-        })) {
-          cur_level_slot = ii;
-          if (has_any_other) {
-            // prompt for "start fresh" or "copy from slot X"
-            choosing_new_game = true;
-          } else {
-            startPuzzle(puzzle_id);
-          }
-        }
       }
+      // font.draw({
+      //   color: palette_font[9],
+      //   y: y - CHH,
+      //   x: xstart, w: x - xstart,
+      //   align: ALIGN.HCENTER,
+      //   text: `Save ${ii+1}`,
+      // });
+      x += button_w + pad;
     }
-    // font.draw({
-    //   color: palette_font[9],
-    //   y: y - CHH,
-    //   x: xstart, w: x - xstart,
-    //   align: ALIGN.HCENTER,
-    //   text: `Save ${ii+1}`,
-    // });
-    x += button_w + pad;
   }
-
 }
 
 let title_anim: AnimationSequencer | null = null;
