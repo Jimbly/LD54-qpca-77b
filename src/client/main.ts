@@ -596,7 +596,7 @@ class Node {
               }
               p = op.p[jj] = 0;
             } else {
-              p = op.p[jj] = oplinenum - op.source_line;
+              p = op.p[jj] = oplinenum - ii;
             }
           }
           if (typeof p === 'number') {
